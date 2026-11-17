@@ -1,0 +1,4 @@
+# Core web server, database, auth, billing and Telegram bots use Python's standard library.
+# Optional local speech transcription, activated with ENABLE_AI_TRANSCRIPTION=true.
+faster-whisper==1.2.1
+

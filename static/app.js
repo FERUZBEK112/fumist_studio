@@ -37,7 +37,31 @@ function render(){
  $('#app').innerHTML=`<div class="shell ${editor?'editor-shell':''}"><aside class="sidebar"><button class="logo" data-action="home"><img src="/mark.svg" alt=""><span class="logo-text">FUMIST<small>STUDIO</small></span></button><div class="side-label caps">${t('menu')}</div><nav>${[['home','workspace','home'],['projects','projects','folder'],['templates','templates','grid'],['ai','aiTools','spark'],['exports','exports','download'],['plans','plans','crown']].map(([v,key,ico])=>`<button class="nav-item ${app.view===v?'active':''}" data-action="nav:${v}" title="${t(key)}" aria-label="${t(key)}">${icon(ico)}<span class="nav-text">${t(key)}</span>${v==='ai'?'<span class="pill">AI</span>':''}</button>`).join('')}</nav><div class="side-bottom"><div class="upgrade">${icon('spark')}<h3>${t('upgradeTitle')}</h3><p>${t('upgradeDesc')}</p>${btn('nav:plans',t('seePlans'),'arrow','tiny')}</div><button class="nav-item" data-action="settings" title="${t('settings')}">${icon('settings')}<span class="nav-text">${t('settings')}</span></button><div class="profile-mini row"><div class="avatar">${esc((app.user?.username||'F')[0].toUpperCase())}</div><div class="spacer"><strong class="small">${esc(app.user?.username||t('guest'))}</strong><div class="muted small">${plan().toUpperCase()}</div></div>${ib('settings',t('settings'),'settings')}</div></div></aside><main class="main"><header class="topbar">${editor?`<input class="project-name" id="project-name" aria-label="${t('projects')}" value="${esc(app.name)}"><span class="cloud-status">${dirty?t('savedDraft'):app.projectId?t('saved'):''}</span>`:`<div class="mobile-logo"><img src="/mark.svg" alt="">FUMIST</div><div class="crumb">FUMIST Studio <span> / ${t(({home:'workspace',ai:'aiTools'})[app.view]||app.view)}</span></div>`}<span class="spacer"></span>${themeControls()}${editor?`${ib('save',t('save'),'save')}${btn('export',t('export'),'download','primary')}`:app.user?`<button class="avatar" data-action="settings" aria-label="${t('account')}">${esc(app.user.username[0].toUpperCase())}</button>`:btn('login',t('login'),'','ghost tiny')}</header>${editor?editorView():`<div class="content">${({home:homeView,projects:projectsView,templates:templatesView,plans:plansView,exports:exportsView,ai:aiView}[app.view]||homeView)()}</div>`}</main></div>`;
  if(editor){bindPreview();paintPreview(true);}if(app.playing){lastFrame=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(tick);}
 }
-function homeView(){return `<div class="welcome row between"><div><h2>${t('welcome')}</h2><p class="muted small" style="margin:0">${t('intro')}</p></div><span class="pill">${plan().toUpperCase()}</span></div><section class="hero"><div class="hero-copy"><span class="caps muted">FUMIST / CREATIVE STUDIO</span><h1>${t('heroTitle')}</h1><p>${t('heroDesc')}</p>${btn('new',t('startEditing'),'plus','primary')}</div><div class="hero-art"><img src="/scene.svg" alt=""><span class="film-tag">${t('heroTag')}</span><div class="film-label"><small>FUMIST ORIGINAL</small>BEYOND<br>THE FRAME.</div><button class="film-play" data-action="nav:templates" aria-label="${t('templates')}">${icon('arrow')}</button></div></section><div class="section-head"><h2>${t('quickTools')}</h2><span class="caps muted">MADE FOR YOU</span></div><div class="tools-grid">${[['trim','trimTool','trimDesc','scissors'],['captions','captionTool','captionDesc','caption'],['audio','audioTool','audioDesc','music'],['resize','formatTool','formatDesc','resize']].map(([a,h,p,i])=>`<button class="tool-card" data-action="quick:${a}"><div class="tool-icon">${icon(i)}</div><h3>${t(h)}</h3><p>${t(p)}</p></button>`).join('')}</div><div class="section-head"><h2>${t('recent')}</h2>${btn('nav:projects',t('viewAll'),'arrow','tiny ghost')}</div><div class="project-grid"><button class="new-card" data-action="new">${icon('plus')}${t('newProject')}</button>${app.projects.slice(0,2).map(projectCard).join('')}</div><div class="footer-note">FUMIST Studio · @fera_coder · ${t('retention')}</div>`;}
+const launchFormats = [
+  ['16:9', 'YouTube', 'wide'],
+  ['9:16', 'Reels / Shorts', 'portrait'],
+  ['1:1', 'Instagram', 'square'],
+  ['4:5', 'Feed', 'feed']
+];
+let launchRatio = '16:9';
+
+function homeView() {
+  const format = launchFormats.find(([ratio]) => ratio === launchRatio);
+  const choices = launchFormats.map(([ratio, platform]) =>
+    `<button type="button" data-action="format:${ratio}" aria-pressed="${ratio === launchRatio}" aria-label="${platform} ${ratio}">${ratio}</button>`
+  ).join('');
+  return `<section class="launchpad">
+    <div class="launch-copy">
+      <h1>${t('newProject')}</h1>
+      <fieldset class="format-picker"><legend>${t('format')}</legend>${choices}</fieldset>
+      <div class="row wrap">${btn('launch', t('startEditing'), 'plus', 'primary')}
+      ${app.project.clips.length ? btn('nav:editor', t('resumeDraft'), 'play') : ''}</div>
+    </div>
+    <div class="format-stage" aria-live="polite">
+      <div class="monitor-frame ${format[2]}"><img src="/scene.svg" alt=""><span class="frame-grid"></span></div>
+      <div class="monitor-meta"><strong>${format[1]}</strong><span>${format[0]}</span></div>
+    </div>
+  </section><div class="section-head"><h2>${t('quickTools')}</h2></div><div class="tools-grid">${[['trim','trimTool','trimDesc','scissors'],['captions','captionTool','captionDesc','caption'],['audio','audioTool','audioDesc','music'],['resize','formatTool','formatDesc','resize']].map(([a,h,p,i])=>`<button class="tool-card" data-action="quick:${a}"><div class="tool-icon">${icon(i)}</div><h3>${t(h)}</h3><p>${t(p)}</p></button>`).join('')}</div><div class="section-head"><h2>${t('recent')}</h2>${btn('nav:projects',t('viewAll'),'arrow','tiny ghost')}</div><div class="project-grid"><button class="new-card" data-action="new">${icon('plus')}${t('newProject')}</button>${app.projects.slice(0,2).map(projectCard).join('')}</div><div class="footer-note">FUMIST Studio · @fera_coder · ${t('retention')}</div>`;}
 function projectCard(p){let body={};try{body=JSON.parse(p.body);}catch{}const first=mById(body.clips?.[0]?.media);return `<article class="project-card"><button class="project-cover" style="width:100%" data-action="open-project:${p.id}" aria-label="${esc(p.name)}">${first&&first.kind==='image'?`<img src="${first.url}" alt="">`:icon('film')}<span>${esc(body.ratio||'16:9')}</span></button><div class="project-info row"><div class="spacer" style="min-width:0"><h3>${esc(p.name)}</h3><span class="muted small">${date(p.updated)}</span></div>${ib('delete-project:'+p.id,t('remove'),'trash')}</div></article>`;}
 function projectsView(){return `<div class="section-head"><h2>${t('projects')}</h2><div class="row">${btn('import-json',t('importProject'),'upload','tiny')}${btn('new',t('newProject'),'plus','primary tiny')}</div></div>${app.projects.length?`<div class="project-grid">${app.projects.map(projectCard).join('')}</div>`:`<div class="empty">${icon('folder')}<h3>${t('noProjects')}</h3><p>${t('noProjectsDesc')}</p>${btn('new',t('newProject'),'plus','primary')}</div>`}`;}
 const presets=[{key:'travel',title:'WANDER<br>MORE.',sub:'A MOMENT OUTSIDE',ratio:'16:9',filter:'warm',text:'WANDER MORE.',position:'center',size:64},{key:'school',title:'OUR<br>STORY.',sub:'THE DAYS WE REMEMBER',ratio:'16:9',filter:'none',text:'OUR STORY',position:'center',size:64},{key:'minimal',title:'less,<br>but better.',sub:'A DIFFERENT PERSPECTIVE',ratio:'9:16',filter:'mono',text:'less, but better.',position:'bottom',size:50},{key:'birthday',title:'MAKE<br>A WISH.',sub:'YOUR NEXT CHAPTER',ratio:'9:16',filter:'warm',text:'MAKE A WISH',position:'center',size:60},{key:'sport',title:'NEVER<br>SETTLE.',sub:'ONE MORE REP',ratio:'9:16',filter:'vivid',text:'NEVER SETTLE',position:'center',size:64},{key:'portfolio',title:'BUILT<br>BY ME.',sub:'IDEAS INTO REALITY',ratio:'16:9',filter:'cinema',text:'BUILT BY ME',position:'bottom',size:60}];
@@ -113,6 +137,18 @@ async function action(action){
  if(name==='close'){$('#modal').close();return;}
  if(name==='home'||name==='nav'){navigate(name==='home'?'home':value);return;}
  if(name==='new'){if(dirty&&app.user)await saveProject(true);newProject();return;}
+ if(name==='format' && launchFormats.some(([ratio]) => ratio === value)){
+   launchRatio=value;
+   render();
+   document.querySelector(`[data-action="format:${value}"]`)?.focus();
+   return;
+ }
+ if(name==='launch'){
+   if(dirty && app.user) await saveProject(true);
+   app.tab='media';
+   newProject({...blank(),ratio:launchRatio});
+   return;
+ }
  if(name==='login'){await authDialog();return;}
  if(name==='auth-mode'){authMode=authMode==='login'?'register':'login';drawAuth();return;}
  if(name==='logout'){await api('/api/logout','POST',{});pause();app.user=null;app.media=[];app.projects=[];app.orders=[];app.project=blank();app.projectId=null;app.name='';app.view='home';$('#modal').close();render();return;}
@@ -232,7 +268,10 @@ async function boot(){
  try{app.config=await api('/api/config');}catch(e){toast(errorText('network_error'));}
  const tg=window.Telegram?.WebApp;
  try{if(tg?.initData){tg.ready();tg.expand();const result=await api('/api/auth/telegram','POST',{initData:tg.initData});await afterLogin(result.user);}else{const response=await fetch('/api/me');if(response.ok){const data=await response.json();await afterLogin(data.user);}else restoreDraft();}}catch(e){fail(e);}
- if(query.get('view')==='plans')app.view='plans';render();
+ const requestedView=query.get('view');
+ if(['editor','projects','exports','plans'].includes(requestedView)){
+   navigate(requestedView);
+ } else render();
  pollTimer=setInterval(async()=>{if(!app.user)return;try{app.user=(await api('/api/me')).user;if(['exports','plans'].includes(app.view)){if(app.view==='exports')app.jobs=(await api('/api/jobs')).jobs;else app.orders=(await api('/api/orders')).orders;render();}}catch{}},6000);
 }
 render();boot();

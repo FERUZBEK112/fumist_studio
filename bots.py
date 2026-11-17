@@ -54,15 +54,24 @@ def send_receipt(chat,identifier):
 
 def menu(u):
     copy=COPY[u['language']]
+    projects, exports, support = {
+        'uz': ('Loyihalarim', 'Eksportlarim', 'Yordam'),
+        'ru': ('Мои проекты', 'Мои экспорты', 'Поддержка'),
+        'en': ('My projects', 'My exports', 'Support')
+    }[u['language']]
     url=core.setting('PUBLIC_URL').rstrip('/')+'/?lang='+u['language']+'&theme='+u['theme']
-    return [[{'text':copy['open'],'web_app':{'url':url}}],
-            [{'text':copy['plans'],'web_app':{'url':url+'&view=plans'}}],
+    support_name = core.setting('SUPPORT_USERNAME','ferapmg').strip().lstrip('@')
+    return [[{'text':copy['open'],'web_app':{'url':url+'&view=editor'}}],
+            [{'text':projects,'web_app':{'url':url+'&view=projects'}},
+             {'text':exports,'web_app':{'url':url+'&view=exports'}}],
+            [{'text':copy['plans'],'web_app':{'url':url+'&view=plans'}},
+             {'text':support,'url':'https://t.me/'+support_name}],
             [{'text':copy['lang'],'callback_data':'language'},{'text':copy['theme'],'callback_data':'theme'}]]
 
 def configure_menu(u,chat):
     if not core.setting('PUBLIC_URL').startswith('https://'): return
     api('user','setChatMenuButton',{'chat_id':chat,'menu_button':{'type':'web_app',
-        'text':COPY[u['language']]['open'],'web_app':{'url':core.setting('PUBLIC_URL').rstrip('/')+'/?lang='+u['language']+'&theme='+u['theme']}}})
+        'text':COPY[u['language']]['open'],'web_app':menu(u)[0][0]['web_app']}})
 
 def handle_user(update):
     callback=update.get('callback_query')

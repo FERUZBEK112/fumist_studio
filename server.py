@@ -142,7 +142,8 @@ class Handler(BaseHTTPRequestHandler):
                     if u['telegram_id']: raise core.Error('already_linked',409)
                     token=core.uid()
                     with core.db() as c: c.execute('INSERT INTO links VALUES(?,?,?)',(token,u['id'],core.now()+600))
-                    return self.json({'url':f'https://t.me/{core.setting("BOT_USERNAME")}?start=link_{token}'})
+                    bot_name = core.setting('BOT_USERNAME').strip().lstrip('@')
+                    return self.json({'url':f'https://t.me/{bot_name}?start=link_{token}'})
                 if path=='/api/media' and method=='POST': return self.upload(u)
                 if path=='/api/media':
                     with core.db() as c: rows=c.execute('SELECT * FROM media WHERE user_id=? ORDER BY created DESC',(u['id'],)).fetchall()

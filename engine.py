@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import threading
 import time
+import wave
 from functools import lru_cache
 from pathlib import Path
 import core
@@ -227,7 +228,11 @@ def analysis(identifier,u,body,kind):
     if not core.enabled('ENABLE_AI_TRANSCRIPTION'): raise core.Error('ai_not_configured',503)
     model=caption_model(core.setting('WHISPER_MODEL','base'))
     language=body.get('language') if body.get('language') in ('uz','ru','en') else None
-    segments,info=model.transcribe(str(work/'audio.wav'),language=language,vad_filter=True,beam_size=3)
+    import numpy as np
+    with wave.open(str(work/'audio.wav'), 'rb') as audio:
+        samples = np.frombuffer(audio.readframes(audio.getnframes()), dtype='<i2').astype(np.float32)
+    samples /= 32768.0
+    segments,info=model.transcribe(samples,language=language,vad_filter=True,beam_size=3)
     result=[{'start':round(s.start,2),'end':round(s.end,2),'text':s.text.strip(),'color':'#ffffff','size':40,'position':'bottom'} for s in segments]
     return {'subtitles':result[:150],'language':info.language}
 

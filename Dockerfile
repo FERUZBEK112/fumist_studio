@@ -8,4 +8,3 @@ RUN python -m unittest discover -v
 ENV PORT=8080 DATA_DIR=/data PYTHONUNBUFFERED=1
 EXPOSE 8080
 CMD ["python", "server.py"]
-

@@ -259,4 +259,3 @@ def enqueue(u,kind,body):
         identifier=core.uid()
         c.execute("INSERT INTO jobs(id,user_id,kind,body,status,created) VALUES(?,?,?,?,'queued',?)",(identifier,u['id'],kind,json.dumps(body),core.now()))
     return {'id':identifier,'status':'queued'}
-

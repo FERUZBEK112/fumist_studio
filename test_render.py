@@ -26,7 +26,7 @@ class RenderIntegration(unittest.TestCase):
                     {'media':ids[0],'in':.2,'out':1.2,'speed':2,'rotation':90,'flip':True,'fade':.1,'filter':'warm'},
                     {'media':ids[1],'in':0,'out':.5,'speed':1,'filter':'mono'}],
                     'audio':[{'media':ids[2],'volume':.2,'in':0,'offset':0,'loop':True}],
-                    'texts':[{'text':"O'zbekcha: 100% - test 'quote'",'start':0,'end':1,'color':'#ffffff','size':40,'position':'center'}],
+                    'texts':[{'text':"O‘zbekcha: 100% — test 'quote'",'start':0,'end':1,'color':'#ffffff','size':40,'position':'center'}],
                     'subtitles':[{'text':'Subtitle test','start':0,'end':1,'size':30,'position':'bottom','color':'#ffffff'}]}
                 identifier=core.uid();result=engine.render(identifier,u,engine.validate(p,u))
                 output=core.DATA/'exports'/f'{identifier}.mp4';info=engine.probe(output)
@@ -39,4 +39,3 @@ class RenderIntegration(unittest.TestCase):
             finally:core.DATA=old
 
 if __name__=='__main__':unittest.main()
-

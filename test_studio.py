@@ -169,4 +169,3 @@ class StudioTests(unittest.TestCase):
         self.assertEqual(self.request('/api/projects',token=self.other_token)[1]['projects'],[])
 
 if __name__=='__main__':unittest.main()
-

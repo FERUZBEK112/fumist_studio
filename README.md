@@ -6,7 +6,7 @@ A web video editor with a timeline, real FFmpeg MP4 exports, optional CPU speech
 
 - Upload videos, images and audio; per-account private media access.
 - Trim, split, reorder (drag or buttons), duplicate and remove clips.
-- Playback speed 0.25-4?, rotation, mirror, fit/crop, volume and mute.
+- Playback speed 0.25–4×, rotation, mirror, fit/crop, volume and mute.
 - Brightness, contrast, saturation, seven color looks, fade in/out.
 - Text overlays with timing, size, color and position.
 - Subtitle editing, SRT import/export and burned-in subtitles.
@@ -30,7 +30,7 @@ A web video editor with a timeline, real FFmpeg MP4 exports, optional CPU speech
 
 Free exports include a FUMIST watermark. Plus and Pro remove it and unlock cinema/vintage looks. AI captions require the optional AI service to be enabled, regardless of quota.
 
-**Uploading a receipt NEVER activates a subscription. Only an administrator whose numeric Telegram ID is in `ADMIN_IDS` can approve an order in the administrator bot.** The subscription starts at the approval instant and ends one calendar month later, at the same UTC time. Month-end dates clamp to the last day of the next month (January 31  February 28/29). Approval is atomic and cannot run twice. Expired access resolves to Free on every authenticated request, including export requests. A new approved purchase starts a new one-month period from its approval; unused time is not stacked.
+**Uploading a receipt NEVER activates a subscription. Only an administrator whose numeric Telegram ID is in `ADMIN_IDS` can approve an order in the administrator bot.** The subscription starts at the approval instant and ends one calendar month later, at the same UTC time. Month-end dates clamp to the last day of the next month (January 31 → February 28/29). Approval is atomic and cannot run twice. Expired access resolves to Free on every authenticated request, including export requests. A new approved purchase starts a new one-month period from its approval; unused time is not stacked.
 
 ### Payments
 
@@ -89,7 +89,6 @@ python -m unittest discover -v
 node --check static/app.js
 ```
 
-Open `http://localhost:8080`. The Docker build installs FFmpeg, the speech package and fonts, then runs the tests including a real codec integration test (video + image + music + timed text + subtitles  vertical MP4).
+Open `http://localhost:8080`. The Docker build installs FFmpeg, the speech package and fonts, then runs the tests including a real codec integration test (video + image + music + timed text + subtitles → vertical MP4).
 
 Known limits: browser preview approximates some color/fade/audio settings; the exported FFmpeg result is authoritative. Auto transcription quality, especially Uzbek, must be checked manually. Render tasks interrupted by a deploy fail visibly and can be restarted. Media is private but uploaded to the service for processing; keep backups of important originals. Receipts and transaction records should be backed up with the volume. Forgotten-password recovery is via support in this initial release.
-

@@ -8,9 +8,9 @@ from datetime import datetime, timezone
 import core
 
 COPY={
- 'uz':{'welcome':'FUMIST Studio - videolaringiz uchun ijodiy makon. ??','open':'?? Montajni ochish','plans':'?? Tariflar','lang':'?? Til','theme':'? Mavzu','support':'Yordam: @','review':'To'lov tasdiq kutilmoqda. Obuna faqat admin tasdiqlagach boshlanadi.','terms':'Obuna admin tasdiqlagan vaqtdan 1 kalendar oy ishlaydi. To'lovdan oldin tarif va limitlarni tekshiring.','choose':'Tanlang:','linked':'? Saytdagi akkaunt Telegramga ulandi.','conflict':'Bu Telegram akkaunt allaqachon ishlatilgan. Yordamga murojaat qiling.','pending':'Tasdiq kutilmoqda','empty':'Hozircha yo'q.','approve':'? Tasdiqlash','reject':'? Rad etish'},
- 'ru':{'welcome':'FUMIST Studio - ����࠭�⢮ ��� ���� �����. ??','open':'?? ������ ।����','plans':'?? �����','lang':'?? ���','theme':'? ����','support':'�����প�: @','review':'����� ������� �஢�ન. �����᪠ ������� ⮫쪮 ��᫥ ����७�� �����������.','terms':'�����᪠ ������� 1 ��������� ����� � ������ ����७�� ����������஬. �஢���� ��� � ������ �� ������.','choose':'�롥��:','linked':'? ������ ᠩ� �易� � Telegram.','conflict':'��� Telegram 㦥 �ᯮ������. ������� � �����প�.','pending':'������� �஢�ન','empty':'���� ����.','approve':'? ���⢥न��','reject':'? �⪫�����'},
- 'en':{'welcome':'FUMIST Studio - a creative space for your videos. ??','open':'?? Open editor','plans':'?? Plans','lang':'?? Language','theme':'? Theme','support':'Support: @','review':'Payment awaiting review. Your subscription starts only after administrator approval.','terms':'Subscriptions last 1 calendar month from administrator approval. Review the plan and limits before paying.','choose':'Choose:','linked':'? Website account linked to Telegram.','conflict':'This Telegram account is already in use. Contact support.','pending':'Awaiting review','empty':'Nothing here yet.','approve':'? Approve','reject':'? Reject'}
+ 'uz':{'welcome':'FUMIST Studio — videolaringiz uchun ijodiy makon. 🎬','open':'🎬 Montajni ochish','plans':'💎 Tariflar','lang':'🌐 Til','theme':'◐ Mavzu','support':'Yordam: @','review':'To‘lov tasdiq kutilmoqda. Obuna faqat admin tasdiqlagach boshlanadi.','terms':'Obuna admin tasdiqlagan vaqtdan 1 kalendar oy ishlaydi. To‘lovdan oldin tarif va limitlarni tekshiring.','choose':'Tanlang:','linked':'✅ Saytdagi akkaunt Telegramga ulandi.','conflict':'Bu Telegram akkaunt allaqachon ishlatilgan. Yordamga murojaat qiling.','pending':'Tasdiq kutilmoqda','empty':'Hozircha yo‘q.','approve':'✅ Tasdiqlash','reject':'❌ Rad etish'},
+ 'ru':{'welcome':'FUMIST Studio — пространство для ваших видео. 🎬','open':'🎬 Открыть редактор','plans':'💎 Тарифы','lang':'🌐 Язык','theme':'◐ Тема','support':'Поддержка: @','review':'Платёж ожидает проверки. Подписка начнётся только после одобрения администратора.','terms':'Подписка действует 1 календарный месяц с момента одобрения администратором. Проверьте тариф и лимиты до оплаты.','choose':'Выберите:','linked':'✅ Аккаунт сайта связан с Telegram.','conflict':'Этот Telegram уже используется. Обратитесь в поддержку.','pending':'Ожидает проверки','empty':'Пока пусто.','approve':'✅ Подтвердить','reject':'❌ Отклонить'},
+ 'en':{'welcome':'FUMIST Studio — a creative space for your videos. 🎬','open':'🎬 Open editor','plans':'💎 Plans','lang':'🌐 Language','theme':'◐ Theme','support':'Support: @','review':'Payment awaiting review. Your subscription starts only after administrator approval.','terms':'Subscriptions last 1 calendar month from administrator approval. Review the plan and limits before paying.','choose':'Choose:','linked':'✅ Website account linked to Telegram.','conflict':'This Telegram account is already in use. Contact support.','pending':'Awaiting review','empty':'Nothing here yet.','approve':'✅ Approve','reject':'❌ Reject'}
 }
 
 def token(bot): return core.setting('ADMIN_BOT_TOKEN' if bot=='admin' else 'BOT_TOKEN')
@@ -36,8 +36,8 @@ def notice_order(identifier):
         order=dict(c.execute('SELECT * FROM orders WHERE id=?',(identifier,)).fetchone())
         u=core.by_id(order['user_id'])
     for admin in core.admins():
-        queue('admin','sendMessage',{'chat_id':admin,'text':f"FUMIST  {order['id']}\n@{u['username']}  {u['id']}\n{order['plan'].upper()}  {order['amount']} {order['currency']}\n{order['method']}  {order['status']}",
-            'reply_markup':{'inline_keyboard':[[{'text':'? Tasdiqlash','callback_data':'approve:'+identifier},{'text':'? Rad etish','callback_data':'reject:'+identifier}]]}})
+        queue('admin','sendMessage',{'chat_id':admin,'text':f"FUMIST • {order['id']}\n@{u['username']} • {u['id']}\n{order['plan'].upper()} • {order['amount']} {order['currency']}\n{order['method']} • {order['status']}",
+            'reply_markup':{'inline_keyboard':[[{'text':'✅ Tasdiqlash','callback_data':'approve:'+identifier},{'text':'❌ Rad etish','callback_data':'reject:'+identifier}]]}})
         if order['receipt']:
             queue('admin','receipt',{'chat_id':admin,'order_id':identifier})
 
@@ -68,10 +68,10 @@ def handle_user(update):
     callback=update.get('callback_query')
     if callback:
         u=core.telegram_user(callback['from']); data=callback['data']; chat=callback['message']['chat']['id']
-        if data=='language': send('user',chat,'??',[[{'text':'O'zbekcha','callback_data':'lang:uz'},{'text':'���᪨�','callback_data':'lang:ru'},{'text':'English','callback_data':'lang:en'}]])
+        if data=='language': send('user',chat,'🌐',[[{'text':'O‘zbekcha','callback_data':'lang:uz'},{'text':'Русский','callback_data':'lang:ru'},{'text':'English','callback_data':'lang:en'}]])
         elif data=='theme':
-            labels={'uz':['Qorong'i','Yorug'','Tizimga mos'],'ru':['�񬭠�','���⫠�','���⥬���'],'en':['Dark','Light','System']}[u['language']]
-            send('user',chat,'?',[[{'text':label,'callback_data':'theme:'+value} for label,value in zip(labels,['dark','light','system'])]])
+            labels={'uz':['Qorong‘i','Yorug‘','Tizimga mos'],'ru':['Тёмная','Светлая','Системная'],'en':['Dark','Light','System']}[u['language']]
+            send('user',chat,'◐',[[{'text':label,'callback_data':'theme:'+value} for label,value in zip(labels,['dark','light','system'])]])
         elif data.startswith(('lang:','theme:')):
             field,value=data.split(':')
             if (field=='lang' and value in COPY) or (field=='theme' and value in ('dark','light','system')):
@@ -166,14 +166,14 @@ def handle_admin(update):
             # Only revoke this order's entitlement, never a later independently approved purchase.
             c.execute("UPDATE users SET plan='free',expires=0 WHERE id=? AND expires=?",(order['user_id'],order['expires']))
             c.execute('INSERT INTO audit(actor,action,target,created) VALUES(?,?,?,?)',(str(actor),'refund',identifier,core.now()))
-            send('admin',chat,'? Refunded')
+            send('admin',chat,'✅ Refunded')
         elif text.startswith(('/block ','/unblock ')):
             parts=text.split()
             if len(parts)!=2: return
             c.execute('UPDATE users SET blocked=? WHERE id=?',(int(parts[0]=='/block'),parts[1]))
             c.execute('INSERT INTO audit(actor,action,target,created) VALUES(?,?,?,?)',(str(actor),parts[0],parts[1],core.now()))
-            send('admin',chat,'?')
-        else: send('admin',chat,'FUMIST Admin\n/stats - statistika\n/pending - cheklar\n/block USER_ID\n/unblock USER_ID\n/refund ORDER_ID - Stars qaytarish\n\nFaqat ADMIN_IDS dagi akkauntlar tasdiqlaydi. Obuna tasdiqlangan vaqtdan 1 kalendar oy ishlaydi.')
+            send('admin',chat,'✅')
+        else: send('admin',chat,'FUMIST Admin\n/stats — statistika\n/pending — cheklar\n/block USER_ID\n/unblock USER_ID\n/refund ORDER_ID — Stars qaytarish\n\nFaqat ADMIN_IDS dagi akkauntlar tasdiqlaydi. Obuna tasdiqlangan vaqtdan 1 kalendar oy ishlaydi.')
 
 def poll(bot):
     with core.db() as c:
@@ -209,4 +209,3 @@ def start():
     for bot in ('user','admin'):
         if token(bot): threading.Thread(target=poll,args=(bot,),daemon=True).start()
     threading.Thread(target=delivery,daemon=True).start()
-

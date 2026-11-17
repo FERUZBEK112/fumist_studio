@@ -155,7 +155,7 @@ def review_order(order_id, actor, approve):
                   (str(actor), 'order_approved' if approve else 'order_rejected', order_id, reviewed))
         tg = c.execute('SELECT telegram_id FROM users WHERE id=?', (order['user_id'],)).fetchone()[0]
         if tg:
-            text = f"FUMIST Studio: {order['plan'].upper()} " + ('? '+datetime.fromtimestamp(expiry,timezone.utc).strftime('%Y-%m-%d %H:%M UTC') if approve else '?')
+            text = f"FUMIST Studio: {order['plan'].upper()} " + ('✅ '+datetime.fromtimestamp(expiry,timezone.utc).strftime('%Y-%m-%d %H:%M UTC') if approve else '❌')
             c.execute('INSERT INTO outbox(bot,method,body) VALUES(?,?,?)', ('user','sendMessage',json.dumps({'chat_id':tg,'text':text})))
     return {'status': 'approved' if approve else 'rejected', 'expires': expiry}
 
@@ -177,4 +177,3 @@ def create_order(u, plan, method):
         c.execute('INSERT INTO orders(id,user_id,plan,amount,currency,method,status,created) VALUES(?,?,?,?,?,?,?,?)',
                   (identifier,u['id'],plan,amount,'UZS' if method=='card' else 'XTR',method,'awaiting',now()))
     return identifier
-

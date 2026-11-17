@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import threading
 import time
+from functools import lru_cache
 from pathlib import Path
 import core
 
@@ -192,6 +193,14 @@ def render(identifier,u,p):
     progress(identifier,98)
     return {'download':f'/api/download/{identifier}','seconds':p['duration']}
 
+@lru_cache(maxsize=1)
+def caption_model(name):
+    from faster_whisper import WhisperModel
+    bundled = Path('/opt/whisper/base')
+    source = str(bundled) if name == 'base' and bundled.is_dir() else name
+    return WhisperModel(source, device='cpu', compute_type='int8', cpu_threads=2,
+                        download_root=str(core.DATA/'models'))
+
 def analysis(identifier,u,body,kind):
     m=media_owned(body.get('media'),u['id'])
     if not m['has_audio']: raise core.Error('no_audio')
@@ -216,9 +225,7 @@ def analysis(identifier,u,body,kind):
         if silence_start is None and end-start-cursor>.15: ranges.append({'in':start+cursor,'out':end})
         return {'ranges':ranges[:60]}
     if not core.enabled('ENABLE_AI_TRANSCRIPTION'): raise core.Error('ai_not_configured',503)
-    from faster_whisper import WhisperModel
-    model=WhisperModel(core.setting('WHISPER_MODEL','base'),device='cpu',compute_type='int8',cpu_threads=2,
-                       download_root=str(core.DATA/'models'))
+    model=caption_model(core.setting('WHISPER_MODEL','base'))
     language=body.get('language') if body.get('language') in ('uz','ru','en') else None
     segments,info=model.transcribe(str(work/'audio.wav'),language=language,vad_filter=True,beam_size=3)
     result=[{'start':round(s.start,2),'end':round(s.end,2),'text':s.text.strip(),'color':'#ffffff','size':40,'position':'bottom'} for s in segments]

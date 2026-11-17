@@ -4,12 +4,30 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 import core
 import engine
 
 @unittest.skipUnless(shutil.which(engine.FFMPEG) and shutil.which(engine.FFPROBE),'FFmpeg not installed on this host')
 class RenderIntegration(unittest.TestCase):
+    @unittest.skipUnless(Path('/opt/whisper/base').is_dir(), 'Bundled speech model required')
+    def test_spoken_clip_generates_timed_captions(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(core, 'DATA', Path(folder)), patch.dict('os.environ', {'ENABLE_AI_TRANSCRIPTION':'true','WHISPER_MODEL':'base'}):
+            core.init()
+            user = core.register('caption_test','caption-test-password')
+            media_id = core.uid()
+            audio = core.DATA/'media'/'speech.wav'
+            engine.run(['-f','lavfi','-i','flite=text=Hello everyone. Welcome to the video studio. Today we are making a new movie.:voice=slt',str(audio)])
+            seconds = engine.probe(audio)['seconds']
+            with core.db() as db:
+                db.execute('INSERT INTO media VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+                           (media_id,user['id'],audio.name,'audio','media/speech.wav',seconds,0,0,1,audio.stat().st_size,core.now()))
+            result = engine.analysis(core.uid(),user,{'media':media_id,'in':0,'out':seconds},'transcribe')
+            captions = result['subtitles']
+            self.assertTrue(any('studio' in caption['text'].lower() or 'video' in caption['text'].lower() for caption in captions), captions)
+            self.assertTrue(all(0 <= c['start'] < c['end'] <= seconds + 0.05 for c in captions))
+
     def test_video_image_music_text_and_export(self):
         old=core.DATA
         with tempfile.TemporaryDirectory() as folder:

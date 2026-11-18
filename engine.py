@@ -171,10 +171,17 @@ def render(identifier,u,p):
     (work/'concat.txt').write_text('\n'.join(f"file '{i}.mp4'" for i in range(len(p['clips']))),encoding='utf-8')
     run(['-f','concat','-safe','1','-i','concat.txt','-c','copy','joined.mp4'],cwd=work)
     args=['-i',str(work/'joined.mp4')]
+    audio_lengths=[]
     for track in p['audio']:
         m=media_owned(track['media'],u['id'])
+        available=p['duration']-track['offset']
+        if track['maxLength']: available=min(available,track['maxLength'])
+        if not track['loop']:
+            available=min(available,m['seconds']-track['in'])
+        audio_lengths.append(available)
         if track['loop']: args+=['-stream_loop','-1']
-        args+=['-ss',str(track['in']),'-protocol_whitelist','file,pipe','-f',demux(m['path']),'-i',str(core.DATA/m['path'])]
+        args+=['-ss',str(track['in']),'-t',str(available),'-protocol_whitelist','file,pipe',
+               '-f',demux(m['path']),'-i',str(core.DATA/m['path'])]
     vf=[]
     font=Path('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')
     fontarg=f'fontfile={font}:' if font.exists() else ''
@@ -189,10 +196,7 @@ def render(identifier,u,p):
     if p['audio']:
         af=[]
         for i,track in enumerate(p['audio'],1):
-            available=p['duration']-track['offset']
-            if track['maxLength']: available=min(available,track['maxLength'])
-            if not track['loop']:
-                available=min(available,media_owned(track['media'],u['id'])['seconds']-track['in'])
+            available=audio_lengths[i-1]
             filters=[f'atrim=duration={available}', 'asetpts=PTS-STARTPTS', f'volume={track["volume"]}']
             if track['fadeIn']:
                 filters.append(f'afade=t=in:d={min(track["fadeIn"],available)}')

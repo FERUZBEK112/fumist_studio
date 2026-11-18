@@ -10,4 +10,6 @@ for attempt in $(seq 1 32); do
     sleep 2
 done
 echo "Editor controls were not visible inside FUMIST Studio." >&2
+adb shell cat /sdcard/studio.xml || true
+adb logcat -d -s chromium AndroidRuntime FumistWebView | tail -100 || true
 exit 1

@@ -271,7 +271,9 @@ class Handler(BaseHTTPRequestHandler):
             target=(STATIC/relative).resolve()
             if not target.is_relative_to(STATIC.resolve()) or not target.is_file(): raise core.Error('not_found',404)
             return self.file(target)
-        except core.Error as exc: self.close_connection=True; self.json({'error':exc.code},exc.status)
+        except core.Error as exc:
+            if path=='/api/media': print('Media upload rejected',exc.code)
+            self.close_connection=True; self.json({'error':exc.code},exc.status)
         except (BrokenPipeError,ConnectionResetError,socket.timeout): self.close_connection=True
         except Exception as exc:
             self.close_connection=True
@@ -290,18 +292,22 @@ class Handler(BaseHTTPRequestHandler):
         except Exception: destination.unlink(missing_ok=True); raise
         return size
     def upload(self,u):
-        name=Path(urllib.parse.unquote(self.headers.get('X-Filename','file')).replace('\\','/')).name[:200]
-        ext=Path(name).suffix.lower()
-        engine.demux(name)
+        raw_name=Path(urllib.parse.unquote(self.headers.get('X-Filename','file')).replace('\\','/')).name
+        ext=Path(raw_name).suffix.lower()[:16]
+        name=Path(raw_name).stem[:180]+ext
         rate(('upload',u['id']),30,3600)
         maximum=int(core.setting('MAX_UPLOAD_MB','200'))*1024*1024
         size=self.length(maximum)
         quota=int(core.setting('STORAGE_QUOTA_MB','1000'))*1024*1024
         with core.db() as c: used=c.execute('SELECT COALESCE(SUM(size),0) FROM media WHERE user_id=?',(u['id'],)).fetchone()[0]
         if used+size>quota or shutil.disk_usage(core.DATA).free<size+500*1024*1024: raise core.Error('storage_limit',413)
-        identifier=core.uid(); destination=core.DATA/'media'/f'{identifier}{ext}'
+        identifier=core.uid(); destination=core.DATA/'media'/f'{identifier}.upload'
         self.save_upload(destination,maximum)
         try:
+            ext=engine.detect_upload(destination,ext)
+            recognized=destination.with_suffix(ext)
+            destination.rename(recognized)
+            destination=recognized
             info=engine.probe(destination)
             if info['kind']=='audio' and ext not in ('.mp3','.m4a','.wav','.aac'):
                 converted=destination.with_suffix('.m4a')

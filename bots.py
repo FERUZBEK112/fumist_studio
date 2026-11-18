@@ -59,13 +59,16 @@ def menu(u):
         'ru': ('Мои проекты', 'Мои экспорты', 'Поддержка'),
         'en': ('My projects', 'My exports', 'Support')
     }[u['language']]
-    url=core.setting('PUBLIC_URL').rstrip('/')+'/?lang='+u['language']+'&theme='+u['theme']
+    website=core.setting('PUBLIC_URL').rstrip('/')+'/'
+    website_label={'uz':'🌐 Saytni ochish','ru':'🌐 Открыть сайт','en':'🌐 Open website'}[u['language']]
+    url=website+'?lang='+u['language']+'&theme='+u['theme']
     support_name = core.setting('SUPPORT_USERNAME','ferapmg').strip().lstrip('@')
     return [[{'text':copy['open'],'web_app':{'url':url+'&view=editor'}}],
             [{'text':projects,'web_app':{'url':url+'&view=projects'}},
              {'text':exports,'web_app':{'url':url+'&view=exports'}}],
             [{'text':copy['plans'],'web_app':{'url':url+'&view=plans'}},
              {'text':support,'url':'https://t.me/'+support_name}],
+            [{'text':website_label,'url':website}],
             [{'text':copy['lang'],'callback_data':'language'},{'text':copy['theme'],'callback_data':'theme'}]]
 
 def configure_menu(u,chat):

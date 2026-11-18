@@ -1,4 +1,9 @@
 const rows={
+openWebsite:['Saytni ochish','Открыть сайт','Open website'],
+openBot:['Telegram bot','Telegram-бот','Telegram bot'],
+starsUnavailable:['Stars narxi hali belgilanmagan','Цена в Stars ещё не задана','Stars price not set yet'],
+paymentPending:['Telegram to‘lovni qayta ishlayapti','Telegram обрабатывает платёж','Telegram is processing the payment'],
+paymentFailed:['To‘lov amalga oshmadi. Qayta urin.','Платёж не прошёл. Попробуйте снова.','Payment failed. Please try again.'],
 noSpeechFound:['Tanlangan klipda nutq topilmadi.','В выбранном клипе речь не найдена.','No speech was detected in this clip.'],
 resumeDraft:['Montajni davom ettirish','Продолжить монтаж','Resume edit'],
 workspace:['Ish maydoni','Рабочее пространство','Workspace'],editor:['Muharrir','Редактор','Editor'],projects:['Loyihalarim','Мои проекты','My projects'],templates:['Shablonlar','Шаблоны','Templates'],aiTools:['AI va aqlli vositalar','AI и умные инструменты','AI & smart tools'],exports:['Eksportlar','Экспорты','Exports'],plans:['Tariflar','Тарифы','Plans'],settings:['Sozlamalar','Настройки','Settings'],support:['Yordam','Поддержка','Support'],menu:['IJODIY MAKON','ВАШЕ ПРОСТРАНСТВО','YOUR CREATIVE SPACE'],

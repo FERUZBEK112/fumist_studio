@@ -117,6 +117,9 @@ def handle_user(update):
         send('user',chat,COPY[core.telegram_user(tg)['language']]['review'])
         return
     text=message.get('text','')
+    if text.strip()=='/version':
+        send('user',chat,'FUMIST Studio v'+core.VERSION)
+        return
     if text.strip()=='/id':
         send('user',chat,'Telegram ID: '+str(tg['id']))
         return
@@ -144,7 +147,7 @@ def handle_user(update):
     if text.startswith(('/support','/paysupport')): send('user',chat,copy['support']+core.setting('SUPPORT_USERNAME','ferapmg'))
     elif text.startswith('/terms'): send('user',chat,copy['terms'])
     else:
-        send('user',chat,copy['welcome']+'\n\n'+u['plan'].upper()+('\n'+datetime.fromtimestamp(u['expires'],timezone.utc).isoformat() if u['expires'] else ''),menu(u))
+        send('user',chat,copy['welcome']+'\nFUMIST Studio v'+core.VERSION+'\n\n'+u['plan'].upper()+('\n'+datetime.fromtimestamp(u['expires'],timezone.utc).isoformat() if u['expires'] else ''),menu(u))
         configure_menu(u,chat)
 
 def handle_admin(update):
@@ -154,6 +157,9 @@ def handle_admin(update):
         send('admin',message['chat']['id'],'Telegram ID: '+str(actor))
         return
     if actor not in core.admins(): return
+    if message.get('text','').strip()=='/version':
+        send('admin',message['chat']['id'],'FUMIST Studio v'+core.VERSION)
+        return
     if callback:
         data=callback.get('data','')
         try:

@@ -34,7 +34,7 @@ def rate(key,limit,window=60):
                 if not RATE[k] or RATE[k][-1]<cutoff: del RATE[k]
 
 def config():
-    return {'name':'FUMIST Studio','version':'1.0.0','plans':core.PLANS,
+    return {'name':'FUMIST Studio','version':core.VERSION,'plans':core.PLANS,
         'prices':{p:{'uzs':core.price(p,'UZS'),'stars':core.price(p,'STARS')} for p in ('plus','pro')},
         'billing':core.enabled('BILLING_ENABLED'),'bot':core.setting('BOT_USERNAME'),
         'card_ready':bool(core.setting('CARD_NUMBER') and core.setting('CARD_HOLDER') and core.admins() and core.setting('ADMIN_BOT_TOKEN')),

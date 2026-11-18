@@ -1,0 +1,16 @@
+name: FumistStudio
+targets:
+  FumistStudio:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources: [Studio.swift]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: uz.fumist.studio
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: FUMIST Studio
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        MARKETING_VERSION: 1.3.1
+        CURRENT_PROJECT_VERSION: 10301
+        SWIFT_VERSION: "5.0"

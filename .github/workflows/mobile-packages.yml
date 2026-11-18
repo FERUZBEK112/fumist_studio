@@ -1,0 +1,40 @@
+name: FUMIST mobile packages
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ['mobile/**', '.github/workflows/mobile-packages.yml']
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - run: gradle -p mobile/android assembleDebug && cp mobile/android/build/outputs/apk/debug/*.apk FUMIST-Studio.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FUMIST-Studio-Android
+          path: FUMIST-Studio.apk
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          command -v xcodegen || brew install xcodegen
+          cd mobile/ios
+          xcodegen generate
+          xcodebuild -project FumistStudio.xcodeproj -scheme FumistStudio -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/FumistStudio.app Payload/
+          zip -qr FUMIST-Studio-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FUMIST-Studio-iOS-unsigned
+          path: mobile/ios/FUMIST-Studio-unsigned.ipa

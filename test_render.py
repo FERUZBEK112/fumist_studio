@@ -28,6 +28,18 @@ class RenderIntegration(unittest.TestCase):
             self.assertTrue(any('studio' in caption['text'].lower() or 'video' in caption['text'].lower() for caption in captions), captions)
             self.assertTrue(all(0 <= c['start'] < c['end'] <= seconds + 0.05 for c in captions))
 
+    def test_mp3_with_cover_is_audio(self):
+        with tempfile.TemporaryDirectory() as folder:
+            cover=Path(folder)/'cover.jpg'
+            song=Path(folder)/'music.mp3'
+            engine.run(['-f','lavfi','-i','color=c=green:size=64x64','-frames:v','1',str(cover)])
+            engine.run(['-f','lavfi','-i','sine=frequency=440','-i',str(cover),'-t','1',
+                        '-map','0:a','-map','1:v','-c:a','libmp3lame','-c:v','copy',
+                        '-disposition:v','attached_pic',str(song)])
+            info=engine.probe(song)
+            self.assertEqual(info['kind'],'audio')
+            self.assertTrue(info['has_audio'])
+
     def test_video_image_music_text_and_export(self):
         old=core.DATA
         with tempfile.TemporaryDirectory() as folder:
@@ -43,7 +55,7 @@ class RenderIntegration(unittest.TestCase):
                 p={'ratio':'9:16','resolution':720,'fps':24,'clips':[
                     {'media':ids[0],'in':.2,'out':1.2,'speed':2,'rotation':90,'flip':True,'fade':.1,'filter':'warm'},
                     {'media':ids[1],'in':0,'out':.5,'speed':1,'filter':'mono'}],
-                    'audio':[{'media':ids[2],'volume':.2,'in':0,'offset':0,'loop':True}],
+                    'audio':[{'media':ids[2],'volume':.2,'in':0,'offset':0,'loop':True,'fadeIn':.2,'fadeOut':.2,'maxLength':.8}],
                     'texts':[{'text':"O‘zbekcha: 100% — test 'quote'",'start':0,'end':1,'color':'#ffffff','size':40,'position':'center'}],
                     'subtitles':[{'text':'Subtitle test','start':0,'end':1,'size':30,'position':'bottom','color':'#ffffff'}]}
                 identifier=core.uid();result=engine.render(identifier,u,engine.validate(p,u))

@@ -19,7 +19,7 @@ import org.json.JSONObject;
 public final class Studio extends Activity {
     private static final String HOST = "fumist-studio-production.up.railway.app";
     private static final String ORIGIN = "https://" + HOST;
-    private static final String EDITOR = ORIGIN + "/mobile-releases/1.3.1/index-build2.html";
+    private static final String EDITOR = ORIGIN + "/mobile-releases/1.3.2/index.html";
     private WebView web;
     private ValueCallback<Uri[]> chooser;
     private String pendingURL, pendingText;

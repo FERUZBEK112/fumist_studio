@@ -1,5 +1,5 @@
 set -eu
-adb install -r FUMIST-Studio-1.3.1-build2.apk
+adb install -r FUMIST-Studio-1.3.2.apk
 adb shell am start -W -n uz.fumist.studio/.Studio
 for attempt in $(seq 1 32); do
     adb shell uiautomator dump /sdcard/studio.xml >/dev/null || true

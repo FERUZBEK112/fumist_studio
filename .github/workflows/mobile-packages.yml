@@ -42,6 +42,7 @@ jobs:
         with:
           api-level: 34
           arch: x86_64
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -dns-server 8.8.8.8,1.1.1.1
           disable-animations: true
           script: bash mobile/android/check-launch.sh
   ios:

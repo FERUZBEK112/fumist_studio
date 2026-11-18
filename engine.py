@@ -26,6 +26,28 @@ def demux(path):
     if not value: raise core.Error('invalid_media')
     return value
 
+def detect_upload(path, extension):
+    """Recognize supported media signatures without enabling playlist demuxers."""
+    with Path(path).open('rb') as source:
+        header=source.read(64)
+    if header.startswith(b'RIFF'):
+        if header[8:12]==b'WAVE': return '.wav'
+        if header[8:12]==b'WEBP': return '.webp'
+    if header.startswith(b'fLaC'): return '.flac'
+    if header.startswith(b'OggS'): return '.ogg'
+    if header.startswith(b'FORM') and header[8:12] in (b'AIFF',b'AIFC'): return '.aiff'
+    if header.startswith(b'ID3'): return '.mp3'
+    if len(header)>2 and header[0]==255:
+        if header[1]&0xf6==0xf0: return '.aac'
+        if header[1]&0xe0==0xe0 and header[1]&6: return '.mp3'
+    if len(header)>12 and header[4:8]==b'ftyp':
+        return '.m4a' if extension in ('.m4a','.aac','.mp3','.mpga','.mpeg','.wav','') else '.mp4'
+    if header.startswith(b'\x1aE\xdf\xa3'): return '.webm' if extension=='.webm' else '.mkv'
+    if header.startswith(b'\x89PNG\r\n\x1a\n'): return '.png'
+    if header.startswith(b'\xff\xd8\xff'): return '.jpg'
+    demux('upload'+extension)
+    return extension
+
 def number(value, lo, hi, default=0):
     try: result = float(value if value is not None else default)
     except (TypeError, ValueError): raise core.Error('invalid_number')

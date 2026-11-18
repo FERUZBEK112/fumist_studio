@@ -171,6 +171,23 @@ class StudioTests(unittest.TestCase):
         self.assertEqual(core.telegram_verify(urlencode(fields),token)['id'],123)
         fields['user']=json.dumps({'id':999})
         with self.assertRaises(core.Error):core.telegram_verify(urlencode(fields),token)
+    def test_audio_upload_uses_signature_and_preserves_extension(self):
+        fake={'kind':'audio','seconds':1,'width':0,'height':0,'has_audio':1}
+        header=b'RIFF'+bytes(4)+b'WAVE'+bytes(80)
+        for name in ['wrong.mp3','voice','x'*220+'.wav']:
+            with patch('engine.probe',return_value=fake):
+                status,media,_=self.request('/api/media','POST',token=self.token,raw=header,
+                                          headers={'X-Filename':name})
+            self.assertEqual(status,201,media)
+            self.assertTrue(media['name'].endswith('.wav') or name!='x'*220+'.wav')
+            with core.db() as db:
+                path=db.execute('SELECT path FROM media WHERE id=?',(media['id'],)).fetchone()[0]
+            self.assertTrue(path.endswith('.wav'))
+        status,body,_=self.request('/api/media','POST',token=self.token,raw=b'#EXTM3U https://example.com',
+                                  headers={'X-Filename':'playlist.m3u'})
+        self.assertEqual(status,400)
+        self.assertEqual(body['error'],'invalid_media')
+
     def test_upload_probe_and_file_authorization(self):
         fake={'kind':'image','seconds':0,'width':640,'height':360,'has_audio':0}
         with patch('engine.probe',return_value=fake):

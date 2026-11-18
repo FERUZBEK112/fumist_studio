@@ -32,7 +32,7 @@ jobs:
           disable-animations: true
           script: bash mobile/android/check-launch.sh
   ios:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - run: |

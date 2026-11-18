@@ -8,6 +8,7 @@ import re
 import shutil
 import socket
 import sqlite3
+import subprocess
 import threading
 import time
 import urllib.parse
@@ -291,7 +292,7 @@ class Handler(BaseHTTPRequestHandler):
     def upload(self,u):
         name=Path(urllib.parse.unquote(self.headers.get('X-Filename','file')).replace('\\','/')).name[:200]
         ext=Path(name).suffix.lower()
-        if ext not in ('.mp4','.mov','.mkv','.webm','.m4v','.mp3','.wav','.ogg','.m4a','.aac','.png','.jpg','.jpeg','.webp'): raise core.Error('invalid_media')
+        engine.demux(name)
         rate(('upload',u['id']),30,3600)
         maximum=int(core.setting('MAX_UPLOAD_MB','200'))*1024*1024
         size=self.length(maximum)
@@ -300,8 +301,29 @@ class Handler(BaseHTTPRequestHandler):
         if used+size>quota or shutil.disk_usage(core.DATA).free<size+500*1024*1024: raise core.Error('storage_limit',413)
         identifier=core.uid(); destination=core.DATA/'media'/f'{identifier}{ext}'
         self.save_upload(destination,maximum)
-        try: info=engine.probe(destination)
-        except Exception: destination.unlink(missing_ok=True); raise
+        try:
+            info=engine.probe(destination)
+            if info['kind']=='audio' and ext not in ('.mp3','.m4a','.wav','.aac'):
+                converted=destination.with_suffix('.m4a')
+                try:
+                    engine.run(['-protocol_whitelist','file,pipe','-f',engine.demux(destination),'-i',str(destination),
+                                '-vn','-map','0:a:0','-c:a','aac','-b:a','128k','-movflags','+faststart',str(converted)],timeout=120)
+                    converted_size=converted.stat().st_size
+                    info=engine.probe(converted)
+                except (core.Error,subprocess.TimeoutExpired) as exc:
+                    converted.unlink(missing_ok=True)
+                    raise core.Error('invalid_media',422) from exc
+                except Exception:
+                    converted.unlink(missing_ok=True)
+                    raise
+                if used+converted_size>quota:
+                    converted.unlink(missing_ok=True)
+                    raise core.Error('storage_limit',413)
+                destination.unlink()
+                destination,ext,size=converted,'.m4a',converted_size
+        except Exception:
+            destination.unlink(missing_ok=True)
+            raise
         with core.db() as c:
             c.execute('INSERT INTO media VALUES(?,?,?,?,?,?,?,?,?,?,?)',(identifier,u['id'],name,info['kind'],f'media/{identifier}{ext}',info['seconds'],info['width'],info['height'],info['has_audio'],size,core.now()))
             row=c.execute('SELECT * FROM media WHERE id=?',(identifier,)).fetchone()
@@ -334,7 +356,8 @@ class Handler(BaseHTTPRequestHandler):
             if start>end or start>=size: raise core.Error('invalid_range',416)
             status=206
         self.status_code=status; self.send_response(status); self.headers_common()
-        self.send_header('Content-Type',mimetypes.guess_type(str(path))[0] or 'application/octet-stream')
+        media_types={'.mp3':'audio/mpeg','.m4a':'audio/mp4','.aac':'audio/aac','.wav':'audio/wav','.ogg':'audio/ogg'}
+        self.send_header('Content-Type',media_types.get(path.suffix.lower()) or mimetypes.guess_type(str(path))[0] or 'application/octet-stream')
         self.send_header('Cache-Control','private, no-store' if private else 'no-cache')
         self.send_header('Accept-Ranges','bytes')
         if status==206: self.send_header('Content-Range',f'bytes {start}-{end}/{size}')

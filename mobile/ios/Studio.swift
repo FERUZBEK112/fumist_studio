@@ -1,7 +1,7 @@
 import UIKit
 import WebKit
 
-private let editor = URL(string: "https://fumist-studio-production.up.railway.app/mobile-releases/1.3.1/index-build2.html")!
+private let editor = URL(string: "https://fumist-studio-production.up.railway.app/mobile-releases/1.3.2/index.html")!
 
 @main
 class AppDelegate: UIResponder, UIApplicationDelegate {

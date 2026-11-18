@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-VERSION = '1.3.1'
+VERSION = '1.3.2'
 ROOT = Path(__file__).parent
 DATA = Path(os.getenv('DATA_DIR', str(ROOT / 'data')))
 PLANS = {

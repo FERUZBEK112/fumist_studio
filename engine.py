@@ -20,7 +20,7 @@ def demux(path):
     # Force a real container. Do not allow uploaded playlist files to reference
     # network resources or another account's media through FFmpeg auto-detection.
     formats={'.mp4':'mov','.m4v':'mov','.mov':'mov','.m4a':'mov','.mkv':'matroska','.webm':'matroska',
-             '.mp3':'mp3','.wav':'wav','.ogg':'ogg','.aac':'aac','.png':'png_pipe',
+             '.mp3':'mp3','.wav':'wav','.ogg':'ogg','.opus':'ogg','.flac':'flac','.aif':'aiff','.aiff':'aiff','.aac':'aac','.png':'png_pipe',
              '.jpg':'jpeg_pipe','.jpeg':'jpeg_pipe','.webp':'webp_pipe'}
     value=formats.get(Path(path).suffix.lower())
     if not value: raise core.Error('invalid_media')
@@ -39,12 +39,15 @@ def media_owned(identifier, user_id):
     return dict(row)
 
 def probe(path):
-    result = subprocess.run([FFPROBE,'-v','error','-protocol_whitelist','file,pipe','-f',demux(path),'-show_format','-show_streams','-of','json',str(path)],
-                            capture_output=True, timeout=30)
+    try:
+        result = subprocess.run([FFPROBE,'-v','error','-protocol_whitelist','file,pipe','-f',demux(path),'-show_format','-show_streams','-of','json',str(path)],
+                                capture_output=True, timeout=30)
+    except subprocess.TimeoutExpired as exc:
+        raise core.Error('media_probe_timeout',422) from exc
     if result.returncode: raise core.Error('invalid_media')
     info = json.loads(result.stdout)
     streams = info.get('streams',[])
-    videos = [s for s in streams if s['codec_type']=='video']
+    videos = [s for s in streams if s['codec_type']=='video' and not s.get('disposition',{}).get('attached_pic')]
     audio = any(s['codec_type']=='audio' for s in streams)
     video = videos[0] if videos else {}
     ext = Path(path).suffix.lower()
@@ -106,7 +109,9 @@ def validate(body,u):
         if not m['has_audio']: raise core.Error('no_audio')
         offset=number(track.get('offset',0),0,max(0,total-.01))
         start=number(track.get('in',0),0,max(0,m['seconds']-.01))
-        clean['audio'].append(dict(media=m['id'],offset=offset,**{'in':start},volume=number(track.get('volume',.5),0,2),loop=bool(track.get('loop'))))
+        clean['audio'].append(dict(media=m['id'],offset=offset,**{'in':start},volume=number(track.get('volume',.5),0,2),loop=bool(track.get('loop')),
+                                   fadeIn=number(track.get('fadeIn',0),0,10),fadeOut=number(track.get('fadeOut',0),0,10),
+                                   maxLength=number(track.get('maxLength',0),0,7200)))
     clean['duration']=total
     return clean
 
@@ -184,7 +189,18 @@ def render(identifier,u,p):
     if p['audio']:
         af=[]
         for i,track in enumerate(p['audio'],1):
-            af += [f'[{i}:a]atrim=duration={p["duration"]},asetpts=PTS-STARTPTS,volume={track["volume"]},adelay={int(track["offset"]*1000)}:all=1[a{i}]']
+            available=p['duration']-track['offset']
+            if track['maxLength']: available=min(available,track['maxLength'])
+            if not track['loop']:
+                available=min(available,media_owned(track['media'],u['id'])['seconds']-track['in'])
+            filters=[f'atrim=duration={available}', 'asetpts=PTS-STARTPTS', f'volume={track["volume"]}']
+            if track['fadeIn']:
+                filters.append(f'afade=t=in:d={min(track["fadeIn"],available)}')
+            if track['fadeOut']:
+                fade=min(track['fadeOut'],available)
+                filters.append(f'afade=t=out:st={available-fade}:d={fade}')
+            filters.append(f'adelay={int(track["offset"]*1000)}:all=1')
+            af.append(f'[{i}:a]'+','.join(filters)+f'[a{i}]')
         af += ['[0:a]'+''.join(f'[a{i}]' for i in range(1,len(p['audio'])+1))+f'amix=inputs={len(p["audio"])+1}:duration=first:normalize=0,alimiter=limit=.95[mix]']
         args+=['-filter_complex',';'.join(af),'-map','0:v:0','-map','[mix]']
     else: args+=['-map','0:v:0','-map','0:a:0']

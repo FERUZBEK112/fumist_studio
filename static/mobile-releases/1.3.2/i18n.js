@@ -1,4 +1,10 @@
 const rows={
+templateListen:['Kuyni eshitish','Послушать музыку','Preview music'],
+templateAddVideo:['Shablon tayyor. Boshlash uchun video yoki rasm yukla.','Шаблон готов. Добавьте видео или фото.','Template ready. Add a video or photo to begin.'],
+captionSource:['Subtitr uchun ovoz','Источник звука','Caption audio source'],
+captionClipSource:['Tanlangan klip ovozi','Звук выбранного клипа','Selected clip audio'],
+captionLanguage:['Nutq tili','Язык речи','Spoken language'],
+captionAuto:['Avtomatik','Автоматически','Auto detect'],
 dashboardUsers:['Foydalanuvchilar','Пользователи','Users'],
 dashboardActivity:['Amallar tarixi','Журнал действий','Activity'],
 dashboardEmpty:['Hozircha yozuv yo‘q','Пока нет записей','No records yet'],

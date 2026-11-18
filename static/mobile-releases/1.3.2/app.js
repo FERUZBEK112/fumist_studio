@@ -28,8 +28,8 @@ function history(){app.history.push(clone(app.project));if(app.history.length>50
 function draft(){localStorage.setItem('fumist-draft-'+(app.user?.id||'guest'),JSON.stringify({project:app.project,id:app.projectId,name:app.name}));dirty=true;clearTimeout(saveTimer);if(app.user)saveTimer=setTimeout(()=>saveProject(true).catch(()=>{}),4000);}
 function normalizeTimes(){const d=duration();for(const field of ['texts','subtitles'])app.project[field]=app.project[field].filter(x=>x.start<d).map(x=>({...x,end:Math.min(x.end,d)}));if(d)app.project.audio=app.project.audio.filter(x=>x.offset<d);app.cursor=Math.min(app.cursor,Math.max(0,d-.001));}
 function changed(){normalizeTimes();draft();render();}
-function newProject(preset=null){pause();app.project=preset||blank();app.projectId=null;app.name=t('untitled');app.selected=-1;app.textSelected=-1;app.audioSelected=-1;app.cursor=0;app.history=[];app.future=[];dirty=false;app.view='editor';render();}
-function navigate(view){if(view!==app.view)pause();app.view=view;if(view==='editor'&&!app.name)app.name=t('untitled');render();loadView().catch(fail);}
+function newProject(preset=null){pause();captionSource='clip';app.project=preset||blank();app.projectId=null;app.name=t('untitled');app.selected=-1;app.textSelected=-1;app.audioSelected=-1;app.cursor=0;app.history=[];app.future=[];dirty=false;app.view='editor';render();}
+function navigate(view){if(view!=='templates')stopTemplateSound();if(view!==app.view)pause();app.view=view;if(view==='editor'&&!app.name)app.name=t('untitled');render();loadView().catch(fail);}
 async function loadView(){if(!app.user)return;if(app.view==='projects'||app.view==='home')app.projects=(await api('/api/projects')).projects;if(app.view==='exports'||app.view==='profile')app.jobs=(await api('/api/jobs')).jobs;if(app.view==='profile')app.projects=(await api('/api/projects')).projects;if(app.view==='plans')app.orders=(await api('/api/orders')).orders;render();}
 function themeControls(){return `<select data-setting="language" aria-label="${t('language')}">${[['uz','UZ'],['ru','RU'],['en','EN']].map(([value,label])=>`<option value="${value}" ${value===(localStorage.getItem('fumist-language')||'uz')?'selected':''}>${label}</option>`).join('')}</select><select class="theme-control" data-setting="theme" aria-label="${t('theme')}">${['dark','light','system'].map(v=>`<option value="${v}" ${v===(localStorage.getItem('fumist-theme')||'system')?'selected':''}>${t(v)}</option>`).join('')}</select>`;}
 function telegramMode(){return Boolean(window.Telegram?.WebApp?.initData);}
@@ -97,7 +97,49 @@ function homeView() {
 function projectCard(p){let body={};try{body=JSON.parse(p.body);}catch{}const first=mById(body.clips?.[0]?.media);return `<article class="project-card"><button class="project-cover" style="width:100%" data-action="open-project:${p.id}" aria-label="${esc(p.name)}">${first&&first.kind==='image'?`<img src="${first.url}" alt="">`:icon('film')}<span>${esc(body.ratio||'16:9')}</span></button><div class="project-info row"><div class="spacer" style="min-width:0"><h3>${esc(p.name)}</h3><span class="muted small">${date(p.updated)}</span></div>${ib('delete-project:'+p.id,t('remove'),'trash')}</div></article>`;}
 function projectsView(){return `<div class="section-head"><h2>${t('projects')}</h2><div class="row">${btn('import-json',t('importProject'),'upload','tiny')}${btn('new',t('newProject'),'plus','primary tiny')}</div></div>${app.projects.length?'<div class="field"><input type="search" id="project-search" aria-label="'+tr('Loyihani qidirish','Поиск проекта','Search projects')+'" placeholder="'+tr('Loyihani nomi bilan qidirish','Найти проект по названию','Search projects by name')+'"></div>':''}${app.projects.length?`<div class="project-grid">${app.projects.map(p=>'<div data-project-name="'+esc(p.name.toLowerCase())+'">'+projectCard(p)+'</div>').join('')}</div>`:`<div class="empty">${icon('folder')}<h3>${t('noProjects')}</h3><p>${t('noProjectsDesc')}</p>${btn('new',t('newProject'),'plus','primary')}</div>`}`;}
 const presets=[{key:'travel',title:'WANDER<br>MORE.',sub:'A MOMENT OUTSIDE',ratio:'16:9',filter:'warm',text:'WANDER MORE.',position:'center',size:64},{key:'school',title:'OUR<br>STORY.',sub:'THE DAYS WE REMEMBER',ratio:'16:9',filter:'none',text:'OUR STORY',position:'center',size:64},{key:'minimal',title:'less,<br>but better.',sub:'A DIFFERENT PERSPECTIVE',ratio:'9:16',filter:'mono',text:'less, but better.',position:'bottom',size:50},{key:'birthday',title:'MAKE<br>A WISH.',sub:'YOUR NEXT CHAPTER',ratio:'9:16',filter:'warm',text:'MAKE A WISH',position:'center',size:60},{key:'sport',title:'NEVER<br>SETTLE.',sub:'ONE MORE REP',ratio:'9:16',filter:'vivid',text:'NEVER SETTLE',position:'center',size:64},{key:'portfolio',title:'BUILT<br>BY ME.',sub:'IDEAS INTO REALITY',ratio:'16:9',filter:'cinema',text:'BUILT BY ME',position:'bottom',size:60}];
-function templatesView(){return `<div class="page-intro"><div class="eyebrow caps">FUMIST COLLECTION</div><h1>${t('templateIntro')}</h1><p class="muted">${t('templateHelp')}</p></div><div class="template-grid">${presets.map((p,i)=>`<article class="project-card template-card"><div class="templates-cover"><span class="pill">${p.filter==='cinema'?'PLUS':p.ratio}</span><div class="sub">${p.sub}</div><div class="big">${p.title}</div></div><div class="project-info row"><h3 class="spacer" style="margin:0">${t(p.key)}</h3>${btn('template:'+i,t('useTemplate'),'arrow','tiny')}</div></article>`).join('')}</div>`;}
+// Six original short instrumentals, synthesized locally on demand.
+const templateMusic = [
+ [108,[57,60,64,67],'sway'],
+ [96,[55,59,62,66],'soft'],
+ [82,[60,63,67,70],'soft'],
+ [122,[60,64,67,71],'bounce'],
+ [142,[45,48,52,55],'bounce'],
+ [92,[50,53,57,60],'sway']
+];
+let templatePlayer,templateAudioURL;
+function templateSound(index){
+ const [bpm,notes,feel]=templateMusic[index];
+ const rate=24000,beat=60/bpm,frames=Math.floor(16*beat*rate);
+ const bytes=new ArrayBuffer(44+frames*2),wav=new DataView(bytes);
+ const tag=(offset,word)=>{for(let n=0;n<word.length;n++)wav.setUint8(offset+n,word.charCodeAt(n));};
+ tag(0,'RIFF');wav.setUint32(4,bytes.byteLength-8,true);tag(8,'WAVEfmt ');wav.setUint32(16,16,true);
+ wav.setUint16(20,1,true);wav.setUint16(22,1,true);wav.setUint32(24,rate,true);wav.setUint32(28,rate*2,true);
+ wav.setUint16(32,2,true);wav.setUint16(34,16,true);tag(36,'data');wav.setUint32(40,frames*2,true);
+ const melody=[0,2,1,3,0,1,2,1,3,2,0,1,2,3,1,0];
+ const frequency=note=>440*2**((note-69)/12);
+ for(let n=0;n<frames;n++){
+   const t=n/rate,step=Math.floor(t/beat),phase=t-step*beat,half=phase%(beat/2);
+   const note=frequency(notes[melody[(step+(phase>=beat/2?3:0))%melody.length]]);
+   const pluck=Math.sin(2*Math.PI*note*half)*Math.min(1,half*150)*Math.exp(-half*(feel==='soft'?4:9));
+   const bass=Math.sin(2*Math.PI*frequency(notes[Math.floor(step/4)%4]-12)*phase)*Math.min(1,phase*65)*Math.exp(-phase*6);
+   const kick=Math.sin(2*Math.PI*(48*phase+3*(1-Math.exp(-phase*25))))*Math.exp(-phase*28)*Math.min(1,phase*150);
+   const dust=Math.sin(n*12.9898+Math.sin(n*4.13)*17)*Math.exp(-half*85)*Math.min(1,half*300);
+   const sample=.22*pluck+.18*bass+(feel==='bounce'?.24:feel==='sway'?.12:.045)*kick+.035*dust;
+   wav.setInt16(44+n*2,Math.round(32767*sample*Math.min(1,t*40,(frames-n)/(rate*.05))),true);
+ }
+ return new File([bytes],presets[index].key+'-fumist.wav',{type:'audio/wav'});
+}
+function stopTemplateSound(){
+ if(templatePlayer){templatePlayer.pause();templatePlayer=null;}
+ if(templateAudioURL){URL.revokeObjectURL(templateAudioURL);templateAudioURL=null;}
+}
+function listenTemplate(index){
+ stopTemplateSound();
+ templateAudioURL=URL.createObjectURL(templateSound(index));
+ templatePlayer=new Audio(templateAudioURL);templatePlayer.onended=stopTemplateSound;
+ templatePlayer.play().catch(error=>{if(error.name!=='AbortError')toast(t('audioPlaybackError'));});
+}
+function templatesView(){return `<div class="page-intro"><div class="eyebrow caps">FUMIST COLLECTION</div><h1>${t('templateIntro')}</h1><p class="muted">${t('templateHelp')}</p></div><div class="template-grid">${presets.map((p,i)=>`<article class="project-card template-card"><div class="templates-cover template-look-${i}"><span class="pill">${p.filter==='cinema'?'PLUS':p.ratio}</span><div class="sub">${p.sub}</div><div class="big">${p.title}</div></div><div class="project-info row"><h3 class="spacer" style="margin:0">${t(p.key)}</h3>${btn('template-listen:'+i,t('templateListen'),'music','tiny')}${btn('template:'+i,t('useTemplate'),'arrow','tiny primary')}</div></article>`).join('')}</div>`;}
 function planPrice(p){
  if(p==='free')return t('freePrice');
  const stars=telegramMode(), price=app.config?.prices?.[p]?.[stars?'stars':'uzs'];
@@ -116,8 +158,8 @@ function libraryView(){
  if(app.tab==='filters')return `<h3>${t('filters')}</h3><div class="filter-grid">${['none','warm','cool','mono','vivid','cinema','vintage'].map(f=>`<button class="filter-button ${app.project.clips[app.selected]?.filter===f?'active':''}" data-action="filter:${f}">${t(f)}${['cinema','vintage'].includes(f)?'<br><span class="caps muted" style="font-size:8px">PLUS</span>':''}</button>`).join('')}</div>`;
  if(app.tab==='text'){const text=app.project.texts[app.textSelected];return `${btn('add-text',t('addText'),'plus','tiny primary','style="width:100%"')}${app.project.texts.map((x,i)=>`<button class="subtitle-row" style="display:block;width:100%;text-align:left;margin-top:10px" data-action="select-text:${i}">${esc(x.text.slice(0,60))}</button>`).join('')}${text?`<div class="divider"></div><div class="field"><label>${t('textContent')}</label><textarea data-text-field="text" rows="3">${esc(text.text)}</textarea></div><div class="field-row">${field('start',text.start,'number','step=".1" min="0"','text')}${field('end',text.end,'number','step=".1" min=".1"','text')}</div><div class="field-row">${field('fontSize',text.size,'number','min="16" max="120"','text')}${field('color',text.color,'color','','text')}</div><div class="field"><label>${t('position')}</label><select data-text-field="position">${['top','center','bottom'].map(v=>`<option value="${v}" ${v===text.position?'selected':''}>${t(v)}</option>`).join('')}</select></div>${btn('remove-text',t('remove'),'trash','tiny')}`:''}`;}
  if(app.tab==='audio'){const track=app.project.audio[app.audioSelected],source=track&&mById(track.media);return `${btn('upload',t('import'),'upload','tiny','style="width:100%"')}<div style="margin-top:10px">${btn(app.recording?'record-stop':'record',t(app.recording?'stopRecord':'record'),'mic',app.recording?'primary':'tiny','style="width:100%"')}</div><p class="form-help">${t(app.recording?'micRecording':'recordHelp')}</p>${app.project.audio.map((x,i)=>`<button class="subtitle-row" style="display:block;width:100%;text-align:left" data-action="select-audio:${i}">♫ ${esc(mById(x.media)?.name)}</button>`).join('')}${track?`<div class="divider"></div>${source?`<audio class="audio-audition" controls preload="none" src="${source.url}"></audio>`:''}${field('offset',track.offset,'number','min="0" step=".1"','audio')}${field('start',track.in,'number','min="0" step=".1"','audio')}${field('volume',track.volume,'number','min="0" max="2" step=".05"','audio')}${field('musicFadeIn',track.fadeIn||0,'number','min="0" max="10" step=".1"','audio')}${field('musicFadeOut',track.fadeOut||0,'number','min="0" max="10" step=".1"','audio')}${btn('align-audio',t('alignAudio'),'play','tiny')}<label class="check-label"><input type="checkbox" data-audio-field="loop" ${track.loop?'checked':''}>${t('loop')}</label>${btn('remove-audio',t('remove'),'trash','tiny')}`:`<p class="muted small">${t('noAudio')}</p>`}`;}
- if(app.tab==='subtitles')return `<div class="row wrap">${btn('import-srt',t('importSrt'),'upload','tiny')}${btn('download-srt','SRT','download','tiny')}${btn('add-caption',t('addCaption'),'plus','tiny')}</div><p class="form-help">${t('captionHelp')}</p>${btn('analyze:transcribe',t('runAi'),'spark','tiny primary','style="width:100%"')}<p class="form-help">${app.config?.ai?t('autoCaptionHelp'):t('aiDisabled')}</p>${app.project.subtitles.map((s,i)=>`<div class="subtitle-row"><textarea data-subtitle="${i}" data-sub-field="text" aria-label="${t('text')}">${esc(s.text)}</textarea><div class="row"><input type="number" data-subtitle="${i}" data-sub-field="start" aria-label="${t('start')}" value="${s.start}" min="0" step=".1"><span>→</span><input type="number" data-subtitle="${i}" data-sub-field="end" aria-label="${t('end')}" value="${s.end}" min=".1" step=".1"><button class="icon-btn" data-action="remove-caption:${i}" aria-label="${t('remove')}">${icon('trash')}</button></div></div>`).join('')||`<p class="muted small">${t('noCaptions')}</p>`}`;
- return `<h3>${t('aiTools')}</h3><p class="form-help">${t('autoCaptionHelp')}</p>${btn('analyze:transcribe',t('runAi'),'caption','tiny primary','style="width:100%"')}${!app.config?.ai?`<p class="form-help">${t('aiDisabled')}</p>`:''}<div class="divider"></div><h3>${t('silence')}</h3><p class="form-help">${t('silenceHelp')}</p>${btn('analyze:silence',t('analyze'),'scissors','tiny','style="width:100%"')}${app.busy?`<p class="processing">${t('processing')}</p>`:''}`;
+ if(app.tab==='subtitles')return `<div class="row wrap">${btn('import-srt',t('importSrt'),'upload','tiny')}${btn('download-srt','SRT','download','tiny')}${btn('add-caption',t('addCaption'),'plus','tiny')}</div><p class="form-help">${t('captionHelp')}</p>${captionControls()}${btn('analyze:transcribe',t('runAi'),'spark','tiny primary','style="width:100%"')}<p class="form-help">${app.config?.ai?t('autoCaptionHelp'):t('aiDisabled')}</p>${app.project.subtitles.map((s,i)=>`<div class="subtitle-row"><textarea data-subtitle="${i}" data-sub-field="text" aria-label="${t('text')}">${esc(s.text)}</textarea><div class="row"><input type="number" data-subtitle="${i}" data-sub-field="start" aria-label="${t('start')}" value="${s.start}" min="0" step=".1"><span>→</span><input type="number" data-subtitle="${i}" data-sub-field="end" aria-label="${t('end')}" value="${s.end}" min=".1" step=".1"><button class="icon-btn" data-action="remove-caption:${i}" aria-label="${t('remove')}">${icon('trash')}</button></div></div>`).join('')||`<p class="muted small">${t('noCaptions')}</p>`}`;
+ return `<h3>${t('aiTools')}</h3><p class="form-help">${t('autoCaptionHelp')}</p>${captionControls()}${btn('analyze:transcribe',t('runAi'),'caption','tiny primary','style="width:100%"')}${!app.config?.ai?`<p class="form-help">${t('aiDisabled')}</p>`:''}<div class="divider"></div><h3>${t('silence')}</h3><p class="form-help">${t('silenceHelp')}</p>${btn('analyze:silence',t('analyze'),'scissors','tiny','style="width:100%"')}${app.busy?`<p class="processing">${t('processing')}</p>`:''}`;
 }
 
 function modal(html){$('#modal').classList.remove('owner-dashboard');$('#modal-content').innerHTML=`<div class="modal-inner">${html}</div>`;if(!$('#modal').open)$('#modal').showModal();}
@@ -154,7 +196,7 @@ function profileView(){
  return `<div class="account-hero"><div class="avatar">${esc((user?.username||'F')[0].toUpperCase())}</div><div><p class="muted small">${t('account')}</p><h1>${esc(user?.username||t('guest'))}</h1></div><span class="pill">${plan().toUpperCase()}</span></div>
  <div class="account-grid">
  <section class="account-card"><h2>${t('projects')}</h2><strong>${app.projects.length}</strong>${btn('nav:projects',t('viewAll'),'arrow','tiny')}</section>
- <section class="account-card"><h2>${t('exports')}</h2><strong>${app.jobs.filter(job=>job.status==='done').length}</strong>${btn('nav:exports',t('viewAll'),'arrow','tiny')}</section>
+ <section class="account-card"><h2>${t('exports')}</h2><strong>${app.jobs.filter(job=>job.kind==='render'&&job.status==='done').length}</strong>${btn('nav:exports',t('viewAll'),'arrow','tiny')}</section>
  <section class="account-card"><h2>${t('plans')}</h2><strong>${plan().toUpperCase()}</strong>${user?.expires?`<p class="muted small">${date(user.expires)}</p>`:''}${btn('nav:plans',t('seePlans'),'arrow','tiny')}</section>
  </div><section class="account-card account-options"><h2>${t('settings')}</h2><div class="row wrap">${themeControls()}${user?btn('link-telegram',t(user.telegram_id?'telegramLinked':'telegramLink'),'link','tiny',user.telegram_id?'disabled':'')+btn('settings',t('settings'),'settings','tiny'):btn('login',t('login'),'external','primary tiny')}</div></section>`;
 }
@@ -186,7 +228,7 @@ async function saveProject(quiet=false){draftLocal();if(!app.user){if(quiet)retu
 function draftLocal(){localStorage.setItem('fumist-draft-'+(app.user?.id||'guest'),JSON.stringify({project:app.project,id:app.projectId,name:app.name}));}
 function cleanProject(raw){
  if(!raw||typeof raw!=='object'||!Array.isArray(raw.clips)||raw.clips.length>60)throw new Error('invalid_project');
- const p=blank();p.ratio=['16:9','9:16','1:1','4:5'].includes(raw.ratio)?raw.ratio:'16:9';p.resolution=[720,1080].includes(raw.resolution)?raw.resolution:720;p.fps=[24,30].includes(raw.fps)?raw.fps:30;
+ const p=blank();if(presets.some(p=>p.filter===raw.templateFilter))p.templateFilter=raw.templateFilter;p.ratio=['16:9','9:16','1:1','4:5'].includes(raw.ratio)?raw.ratio:'16:9';p.resolution=[720,1080].includes(raw.resolution)?raw.resolution:720;p.fps=[24,30].includes(raw.fps)?raw.fps:30;
  const numeric=(n,fallback=0)=>Number.isFinite(Number(n))?Number(n):fallback;
  p.clips=raw.clips.map(c=>({media:/^[a-f0-9]{32}$/.test(c.media)?c.media:'',in:Math.max(0,numeric(c.in)),out:Math.min(7200,Math.max(.1,numeric(c.out,5))),speed:Math.min(4,Math.max(.25,numeric(c.speed,1))),volume:Math.min(2,Math.max(0,numeric(c.volume,1))),rotation:[0,90,180,270].includes(c.rotation)?c.rotation:0,flip:!!c.flip,filter:['none','warm','cool','mono','vivid','cinema','vintage'].includes(c.filter)?c.filter:'none',brightness:Math.min(.5,Math.max(-.5,numeric(c.brightness))),contrast:Math.min(2,Math.max(.5,numeric(c.contrast,1))),saturation:Math.min(2,Math.max(0,numeric(c.saturation,1))),fade:Math.min(2,Math.max(0,numeric(c.fade))),fit:c.fit==='cover'?'cover':'contain'})).filter(c=>c.out>c.in);
  for(const field of ['texts','subtitles'])p[field]=(Array.isArray(raw[field])?raw[field]:[]).slice(0,150).map(x=>({text:String(x.text||'').slice(0,500),start:Math.max(0,numeric(x.start)),end:Math.max(.1,numeric(x.end,5)),size:Math.min(120,Math.max(16,numeric(x.size,40))),color:/^#[a-f0-9]{6}$/i.test(x.color)?x.color:'#ffffff',position:['top','center','bottom'].includes(x.position)?x.position:'bottom'}));
@@ -194,21 +236,59 @@ function cleanProject(raw){
  return p;
 }
 function restoreDraft(){try{const d=JSON.parse(localStorage.getItem('fumist-draft-'+(app.user?.id||'guest'))||'null');if(d){app.project=cleanProject(d.project);app.projectId=/^[a-f0-9]{32}$/.test(d.id)?d.id:null;app.name=String(d.name||t('untitled')).slice(0,100);}}catch{app.project=blank();}}
-async function uploadFiles(files){if(!await ensureAuth())return;for(const file of files){if(file.size>(app.config?.max_upload_mb||200)*1024*1024){toast(errorText('file_too_large'));continue;}app.uploadPct=0;app.tab='media';render();try{const media=await new Promise((resolve,reject)=>{const xhr=new XMLHttpRequest();xhr.open('POST','/api/media');xhr.setRequestHeader('X-Fumist','1');xhr.setRequestHeader('X-Filename',encodeURIComponent(file.name));xhr.upload.onprogress=e=>{if(e.lengthComputable){app.uploadPct=Math.round(e.loaded/e.total*100);const el=$('.upload-progress');if(el)el.innerHTML=`${t('uploading')} ${app.uploadPct}%<progress max="100" value="${app.uploadPct}"></progress>`;}};xhr.onload=()=>{let data;try{data=JSON.parse(xhr.responseText);}catch{reject(new Error(xhr.status===413?'file_too_large':xhr.status===429?'rate_limit':'upload_failed'));return;}xhr.status>=200&&xhr.status<300?resolve(data):reject(new Error(data.error||'upload_failed'));};xhr.onerror=()=>reject(new Error('network_error'));xhr.send(file);});app.media.unshift(media);addMedia(media.id);}catch(e){fail(e);}finally{app.uploadPct=null;render();}}}
+async function uploadFiles(files,{soundtrack=false}={}){if(!await ensureAuth())return;for(const file of files){if(file.size>(app.config?.max_upload_mb||200)*1024*1024){toast(errorText('file_too_large'));continue;}app.uploadPct=0;app.tab='media';render();try{const media=await new Promise((resolve,reject)=>{const xhr=new XMLHttpRequest();xhr.open('POST','/api/media');xhr.setRequestHeader('X-Fumist','1');xhr.setRequestHeader('X-Filename',encodeURIComponent(file.name));xhr.upload.onprogress=e=>{if(e.lengthComputable){app.uploadPct=Math.round(e.loaded/e.total*100);const el=$('.upload-progress');if(el)el.innerHTML=`${t('uploading')} ${app.uploadPct}%<progress max="100" value="${app.uploadPct}"></progress>`;}};xhr.onload=()=>{let data;try{data=JSON.parse(xhr.responseText);}catch{reject(new Error(xhr.status===413?'file_too_large':xhr.status===429?'rate_limit':'upload_failed'));return;}xhr.status>=200&&xhr.status<300?resolve(data):reject(new Error(data.error||'upload_failed'));};xhr.onerror=()=>reject(new Error('network_error'));xhr.send(file);});app.media.unshift(media);addMedia(media.id);if(soundtrack&&media.kind==='audio'){Object.assign(app.project.audio[app.audioSelected],{loop:true,volume:.35,fadeIn:.2,fadeOut:.6});changed();}}catch(e){fail(e);}finally{app.uploadPct=null;render();}}}
 async function recordVoice(){if(!navigator.mediaDevices||!window.MediaRecorder){toast(t('recordUnsupported'));return;}try{recordStream=await navigator.mediaDevices.getUserMedia({audio:true});recordParts=[];recorder=new MediaRecorder(recordStream);recorder.ondataavailable=e=>{if(e.data.size)recordParts.push(e.data);};recorder.onstop=async()=>{clearTimeout(recordTimer);recordStream.getTracks().forEach(t=>t.stop());app.recording=false;const mime=recorder.mimeType,ext=mime.includes('mp4')?'m4a':'webm';const file=new File(recordParts,['voiceover',ext].join('.'),{type:mime});await uploadFiles([file]);app.tab='audio';render();};recorder.start();app.recording=true;app.tab='audio';render();recordTimer=setTimeout(()=>{if(recorder?.state==='recording')recorder.stop();},120000);}catch{toast(t('recordDenied'));}}
 function downloadText(filename,content,type='application/json'){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function parseSrt(text){const toSec=v=>{const [h,m,s]=v.replace(',','.').split(':').map(Number);return h*3600+m*60+s;};return text.replace(/\r/g,'').trim().split(/\n\s*\n/).map(block=>{const lines=block.split('\n'),i=lines.findIndex(l=>l.includes('-->'));if(i<0)return null;const times=lines[i].match(/(\d{2}:\d{2}:\d{2}[,.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,.]\d{3})/);if(!times)return null;return{start:toSec(times[1]),end:toSec(times[2]),text:lines.slice(i+1).join('\n').replace(/<[^>]*>/g,''),color:'#ffffff',size:40,position:'bottom'};}).filter(x=>x&&x.end>x.start).slice(0,150);}
 function toSrt(){const stamp=n=>{const ms=Math.round(n*1000),h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000),s=Math.floor(ms%60000/1000);return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')},${String(ms%1000).padStart(3,'0')}`;};return app.project.subtitles.map((s,i)=>`${i+1}\n${stamp(s.start)} --> ${stamp(s.end)}\n${s.text}\n`).join('\n');}
-async function analyze(kind){const c=app.project.clips[app.selected],m=c&&mById(c.media);if(!c||!m?.has_audio){toast(t('selectMediaFirst'));return;}if(kind==='transcribe'&&!app.config.ai){toast(t('aiDisabled'));return;}if(app.busy)return;if(!await ensureAuth())return;pause();app.busy=true;render();try{const snapshot=clone(c),target=app.selected;const job=await api('/api/jobs','POST',{kind,project:{media:c.media,in:c.in,out:c.out}});let result;while(true){await new Promise(r=>setTimeout(r,1800));const state=await api('/api/jobs/'+job.id);if(state.status==='failed')throw new Error(state.error);if(state.status==='done'){result=JSON.parse(state.result);break;}}
- if(JSON.stringify(app.project.clips[target])!==JSON.stringify(snapshot)){toast(t('saved'));return;}
- if(kind==='transcribe' && !result.subtitles.length){toast(t('noSpeechFound'));return;}
- history();if(kind==='transcribe'){let before=app.project.clips.slice(0,target).reduce((s,c)=>s+(c.out-c.in)/c.speed,0);app.project.subtitles.push(...result.subtitles.map(s=>({...s,start:before+s.start/c.speed,end:before+s.end/c.speed})));app.tab='subtitles';}else if(result.ranges.length){const replacements=result.ranges.map(r=>({...c,in:r.in,out:r.out}));app.project.clips.splice(target,1,...replacements);toast(t('silenceApplied'));}else toast(t('noSilence'));changed();}catch(e){fail(e);}finally{app.busy=false;render();}}
+let captionSource='clip',captionLanguage='auto';
+function captionControls(){
+ return `<div class="caption-controls"><label>${t('captionSource')}<select id="caption-source"><option value="clip">${t('captionClipSource')}</option>${app.project.audio.map((track,index)=>`<option value="${index}" ${captionSource===String(index)?'selected':''}>${esc(mById(track.media)?.name||t('audio'))}</option>`).join('')}</select></label><label>${t('captionLanguage')}<select id="caption-language">${[['auto',t('captionAuto')],['uz','O‘zbekcha'],['ru','Русский'],['en','English']].map(([id,label])=>`<option value="${id}" ${captionLanguage===id?'selected':''}>${label}</option>`).join('')}</select></label></div>`;
+}
+async function analyze(kind){
+ const trackMode=kind==='transcribe'&&captionSource!=='clip';
+ const index=trackMode?Number(captionSource):app.selected;
+ const item=(trackMode?app.project.audio:app.project.clips)[index],media=item&&mById(item.media);
+ if(!item||!media?.has_audio||!duration()){toast(t('selectMediaFirst'));return;}
+ if(kind==='transcribe'&&!app.config?.ai){toast(t('aiDisabled'));return;}
+ if(app.busy||!await ensureAuth())return;
+ pause();app.busy=true;render();
+ try{
+   const project=app.project,snapshot=JSON.stringify(item);
+   const start=item.in;
+   const end=trackMode?Math.min(media.seconds,start+duration()-item.offset,start+(item.maxLength||Infinity)):item.out;
+   if(end-start<.1){toast(t('selectMediaFirst'));return;}
+   const job=await api('/api/jobs','POST',{kind,project:{media:item.media,in:start,out:end,language:captionLanguage}});
+   let result;
+   for(let attempt=0;attempt<300;attempt++){
+     await new Promise(r=>setTimeout(r,1800));
+     const state=await api('/api/jobs/'+job.id);
+     if(state.status==='failed')throw new Error(state.error);
+     if(state.status==='done'){result=JSON.parse(state.result);break;}
+   }
+   if(!result)throw new Error('processing_failed');
+   if(app.project!==project||JSON.stringify((trackMode?project.audio:project.clips)[index])!==snapshot)return;
+   if(kind==='transcribe'){
+     if(!result.subtitles.length){toast(t('noSpeechFound'));return;}
+     const offset=trackMode?item.offset:project.clips.slice(0,index).reduce((s,c)=>s+(c.out-c.in)/c.speed,0);
+     const speed=trackMode?1:item.speed;
+     history();
+     project.subtitles.push(...result.subtitles.map(s=>({...s,start:offset+s.start/speed,end:offset+s.end/speed})));
+     project.subtitles.sort((a,b)=>a.start-b.start);
+     app.tab='subtitles';
+   }else if(result.ranges.length){
+     history();project.clips.splice(index,1,...result.ranges.map(r=>({...item,in:r.in,out:r.out})));toast(t('silenceApplied'));
+   }else{toast(t('noSilence'));return;}
+   changed();
+ }catch(error){fail(error);}
+ finally{app.busy=false;render();}
+}
 async function action(action){
  if(action==='open-site'){window.Telegram.WebApp.openLink(location.origin+'/');return;}
  const [name,...parts]=action.split(':');const value=parts.join(':');
  if(name==='close'){$('#modal').close();return;}
  if(name==='home'||name==='nav'){navigate(name==='home'?'home':value);return;}
- if(name==='new'){if(dirty&&app.user)await saveProject(true);newProject();return;}
+ if(name==='new'){if(dirty&&app.user)await saveProject(true);stopTemplateSound();newProject();return;}
  if(name==='format' && launchFormats.some(([ratio]) => ratio === value)){
    launchRatio=value;
    render();
@@ -236,7 +316,8 @@ async function action(action){
  if(name==='terms'||name==='privacy'){policyDialog(name);return;}
  if(name==='refresh'){if(app.user)app.user=(await api('/api/me')).user;await loadView();return;}
  if(name==='quick'){if(!app.project.clips.length)newProject();else app.view='editor';app.tab=({captions:'ai',silence:'ai',audio:'audio',srt:'subtitles'})[value]||'media';render();return;}
- if(name==='template'){const preset=presets[Number(value)];if(!preset)return;if(preset.filter==='cinema'&&plan()==='free'){toast(t('planLocked'));navigate('plans');return;}if(dirty&&app.user)await saveProject(true);const p=blank();p.ratio=preset.ratio;p.templateFilter=preset.filter;p.texts=[{text:preset.text,start:0,end:5,size:preset.size,color:'#ffffff',position:preset.position}];newProject(p);app.name=t(preset.key);toast(t('templateApplied'));render();return;}
+ if(name==='template-listen'){if(presets[Number(value)])listenTemplate(Number(value));return;}
+ if(name==='template'){const index=Number(value),preset=presets[index];if(!preset||app.uploadPct!==null)return;if(preset.filter==='cinema'&&plan()==='free'){toast(t('planLocked'));navigate('plans');return;}if(!await ensureAuth())return;if(dirty&&app.user)await saveProject(true);stopTemplateSound();const p=blank();p.ratio=preset.ratio;p.templateFilter=preset.filter;p.texts=[{text:preset.text,start:0,end:5,size:preset.size,color:'#ffffff',position:preset.position}];newProject(p);app.name=t(preset.key);app.tab='media';render();await uploadFiles([templateSound(index)],{soundtrack:true});app.tab='media';render();toast(t('templateAddVideo'));return;}
  if(name==='open-project'){const p=app.projects.find(p=>p.id===value);if(p){pause();app.project=cleanProject(JSON.parse(p.body));app.projectId=p.id;app.name=p.name;app.cursor=0;app.selected=app.project.clips.length?0:-1;app.history=[];app.future=[];app.view='editor';render();}return;}
  if(name==='delete-project'){modal(`${modalHead(t('confirmDelete'))}${btn('confirm-delete-project:'+value,t('remove'),'trash','primary full')}`);return;}
  if(name==='confirm-delete-project'){await api('/api/projects/'+value,'DELETE');app.projects=app.projects.filter(p=>p.id!==value);$('#modal').close();render();return;}
@@ -317,6 +398,8 @@ document.addEventListener('change',async e=>{const el=e.target;
   if(el.id==='zoom'){app.zoom=Number(el.value);render();return;}
   if(el.dataset.clipField){const c=app.project.clips[app.selected];if(!c)return;const key=({start:'in',end:'out'})[el.dataset.clipField]||el.dataset.clipField;const value=['filter','fit'].includes(key)?el.value:Number(el.value);if(!['filter','fit'].includes(key)&&(!Number.isFinite(value)||!el.checkValidity())){render();return;}if(key==='filter'&&['cinema','vintage'].includes(value)&&plan()==='free'){toast(t('planLocked'));render();return;}history();c[key]=value;c.fade=Math.min(c.fade,(c.out-c.in)/c.speed/2);changed();return;}
   if(el.dataset.textField){const x=app.project.texts[app.textSelected];if(!x)return;const key=el.dataset.textField==='fontSize'?'size':el.dataset.textField;const val=['text','color','position'].includes(key)?el.value:Number(el.value);if(typeof val==='number'&&!Number.isFinite(val))return;history();x[key]=val;changed();return;}
+  if(el.id==='caption-source'){captionSource=el.value;return;}
+  if(el.id==='caption-language'){captionLanguage=el.value;return;}
   if(el.dataset.audioField){const x=app.project.audio[app.audioSelected];if(!x)return;const key=({start:'in',musicFadeIn:'fadeIn',musicFadeOut:'fadeOut'})[el.dataset.audioField]||el.dataset.audioField;history();x[key]=key==='loop'?el.checked:Number(el.value);changed();return;}
   if(el.dataset.subtitle!==undefined){const x=app.project.subtitles[Number(el.dataset.subtitle)];if(!x)return;history();x[el.dataset.subField]=el.dataset.subField==='text'?el.value:Number(el.value);changed();return;}
   if(el.id==='media-input'){const files=[...el.files];el.value='';await uploadFiles(files);return;}

@@ -84,3 +84,17 @@ dialog.owner-dashboard{width:min(850px,calc(100vw - 22px))}
  .editor .inspector{max-height:unset}
  .editor .inspector:not([open]){padding-block:10px}
 }
+
+.template-card .project-info{flex-wrap:wrap}
+.template-card .project-info h3{flex-basis:100%;margin-bottom:5px!important}
+.template-card .templates-cover{position:relative;isolation:isolate}
+.template-card .templates-cover::before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(0deg,#000b,transparent 65%),repeating-linear-gradient(90deg,transparent 0 24.7%,#fff2 25% 25.2%)}
+.template-card .template-look-0{background:radial-gradient(ellipse at 76% 18%,#d99556,#63423a 38%,#263b38 78%)}
+.template-card .template-look-1{background:radial-gradient(ellipse at 15% 100%,#b7a288,#624e3e 46%,#1e2521 80%)}
+.template-card .template-look-2{background:linear-gradient(140deg,#a6aaa3,#262b2a 60%,#0d1211)}
+.template-card .template-look-3{background:radial-gradient(ellipse at 87% 30%,#d59791,#7a394f 55%,#301b33)}
+.template-card .template-look-4{background:linear-gradient(120deg,#244746,#141f2a 55%,#b37836)}
+.template-card .template-look-5{background:radial-gradient(ellipse at 80% 10%,#7b8d8b,#354044 45%,#14171b)}
+.caption-controls{display:grid;gap:8px;margin:12px 0}
+.caption-controls label{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.caption-controls select{width:100%;min-width:0;color:var(--text)}

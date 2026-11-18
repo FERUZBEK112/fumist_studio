@@ -9,7 +9,7 @@ public final class Studio extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         new CustomTabsIntent.Builder().setShowTitle(true).build()
-            .launchUrl(this, Uri.parse("https://fumist-studio-production.up.railway.app/"));
+            .launchUrl(this, Uri.parse("https://fumist-studio-production.up.railway.app/mobile-releases/1.3.1/index.html"));
         finish();
     }
 }

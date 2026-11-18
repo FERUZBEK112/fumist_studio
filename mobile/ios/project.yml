@@ -4,9 +4,10 @@ targets:
     type: application
     platform: iOS
     deploymentTarget: "16.0"
-    sources: [Studio.swift]
+    sources: [Studio.swift, Assets.xcassets]
     settings:
       base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_BUNDLE_IDENTIFIER: uz.fumist.studio
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: FUMIST Studio

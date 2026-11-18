@@ -13,7 +13,7 @@ struct FumistStudio: App {
     }
     @State private var showStudio = true
 }
-private let studioURL = URL(string: "https://fumist-studio-production.up.railway.app/")!
+private let studioURL = URL(string: "https://fumist-studio-production.up.railway.app/mobile-releases/1.3.1/index.html")!
 private struct StudioBrowser: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> SFSafariViewController {
         SFSafariViewController(url: studioURL)

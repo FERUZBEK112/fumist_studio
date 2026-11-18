@@ -27,7 +27,8 @@ def now(): return int(time.time())
 def uid(): return secrets.token_hex(16)
 def setting(key, default=''): return os.getenv(key, default)
 def enabled(key): return setting(key).lower() == 'true'
-def admins(): return {int(s.strip()) for s in setting('ADMIN_IDS').split(',') if s.strip().isdigit()}
+def owner_id(): return int(setting('FUMIST_OWNER_ID', '7538161787'))
+def admins(): return {owner_id()} | {int(s.strip()) for s in setting('ADMIN_IDS').split(',') if s.strip().isdigit()}
 
 @contextmanager
 def db():
@@ -61,6 +62,7 @@ def init():
           currency TEXT,method TEXT,status TEXT,receipt TEXT,charge_id TEXT UNIQUE,created INTEGER,reviewed INTEGER,
           reviewer INTEGER,expires INTEGER);
         CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,actor TEXT,action TEXT,target TEXT,created INTEGER);
+        CREATE TABLE IF NOT EXISTS login_codes(digest TEXT PRIMARY KEY,user_id TEXT UNIQUE REFERENCES users(id),expires INTEGER);
         CREATE TABLE IF NOT EXISTS links(token TEXT PRIMARY KEY,user_id TEXT REFERENCES users(id),expires INTEGER);
         CREATE TABLE IF NOT EXISTS bot_state(bot TEXT PRIMARY KEY,offset INTEGER);
         CREATE TABLE IF NOT EXISTS outbox(id INTEGER PRIMARY KEY,bot TEXT,method TEXT,body TEXT,attempts INTEGER DEFAULT 0);
@@ -73,6 +75,7 @@ def user(row):
     d = dict(row)
     if d['blocked']: raise Error('account_blocked', 403)
     d.pop('password', None)
+    d['is_owner'] = d.get('source') in ('telegram','telegram_web') and d.get('telegram_id') == owner_id()
     if d['expires'] <= now(): d['plan'] = 'free'
     d['limits'] = PLANS[d['plan']]
     return d
@@ -91,6 +94,7 @@ def verify_password(password, stored):
 def register(username, password):
     import re
     if not re.fullmatch(r'[a-zA-Z0-9_]{3,32}', username): raise Error('invalid_username')
+    if re.fullmatch(r'tg_[0-9]+', username.lower()): raise Error('invalid_username')
     if not 8 <= len(password) <= 200: raise Error('password_length')
     identifier = uid()
     try:
@@ -128,8 +132,10 @@ def telegram_user(tg):
     with db() as c:
         row = c.execute('SELECT * FROM users WHERE telegram_id=?', (tg['id'],)).fetchone()
         if not row:
+            name='tg_'+str(tg['id'])
+            if c.execute('SELECT 1 FROM users WHERE username=?',(name,)).fetchone(): name='tg_'+uid()[:24]
             c.execute('INSERT INTO users(id,username,telegram_id,created) VALUES(?,?,?,?)',
-                      (uid(), 'tg_'+str(tg['id']), tg['id'], now()))
+                      (uid(), name, tg['id'], now()))
             row = c.execute('SELECT * FROM users WHERE telegram_id=?', (tg['id'],)).fetchone()
     return user(row)
 
@@ -177,3 +183,18 @@ def create_order(u, plan, method):
         c.execute('INSERT INTO orders(id,user_id,plan,amount,currency,method,status,created) VALUES(?,?,?,?,?,?,?,?)',
                   (identifier,u['id'],plan,amount,'UZS' if method=='card' else 'XTR',method,'awaiting',now()))
     return identifier
+
+def issue_login_code(u):
+    code = secrets.token_hex(6).upper()
+    digest = hashlib.sha256(code.encode()).hexdigest()
+    with db() as c:
+        c.execute('DELETE FROM login_codes WHERE expires<=? OR user_id=?',(now(),u['id']))
+        c.execute('INSERT INTO login_codes VALUES(?,?,?)',(digest,u['id'],now()+300))
+    return code
+
+def consume_login_code(code):
+    digest = hashlib.sha256(code.strip().upper().encode()).hexdigest()
+    with db() as c:
+        row = c.execute('DELETE FROM login_codes WHERE digest=? AND expires>? RETURNING user_id',(digest,now())).fetchone()
+    if not row: raise Error('invalid_credentials',401)
+    return by_id(row[0])

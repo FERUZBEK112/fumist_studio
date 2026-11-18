@@ -63,7 +63,8 @@ def menu(u):
     website_label={'uz':'🌐 Saytni ochish','ru':'🌐 Открыть сайт','en':'🌐 Open website'}[u['language']]
     url=website+'?lang='+u['language']+'&theme='+u['theme']
     support_name = core.setting('SUPPORT_USERNAME','ferapmg').strip().lstrip('@')
-    return [[{'text':copy['open'],'web_app':{'url':url+'&view=editor'}}],
+    owner_row = [[{'text':'⚙️ Admin','web_app':{'url':url+'&view=admin'}}]] if u.get('telegram_id')==core.owner_id() else []
+    return owner_row + [[{'text':copy['open'],'web_app':{'url':url+'&view=editor'}}],
             [{'text':projects,'web_app':{'url':url+'&view=projects'}},
              {'text':exports,'web_app':{'url':url+'&view=exports'}}],
             [{'text':copy['plans'],'web_app':{'url':url+'&view=plans'}},
@@ -74,7 +75,7 @@ def menu(u):
 def configure_menu(u,chat):
     if not core.setting('PUBLIC_URL').startswith('https://'): return
     api('user','setChatMenuButton',{'chat_id':chat,'menu_button':{'type':'web_app',
-        'text':COPY[u['language']]['open'],'web_app':menu(u)[0][0]['web_app']}})
+        'text':COPY[u['language']]['open'],'web_app':{'url':core.setting('PUBLIC_URL').rstrip('/')+'/?view=editor'}}})
 
 def handle_user(update):
     callback=update.get('callback_query')
@@ -118,6 +119,13 @@ def handle_user(update):
     text=message.get('text','')
     if text.strip()=='/id':
         send('user',chat,'Telegram ID: '+str(tg['id']))
+        return
+    if text.strip() in ('/login','/start login'):
+        u=core.telegram_user(tg)
+        hint={'uz':'Saytga kirish kodi. 5 daqiqa amal qiladi. Uni faqat FUMIST saytiga kiriting.',
+              'ru':'Код входа на сайт действует 5 минут. Введите его только на сайте FUMIST.',
+              'en':'Website sign-in code. Valid for 5 minutes. Enter only on the FUMIST website.'}
+        send('user',chat,hint[u['language']]+'\n\n'+core.issue_login_code(u))
         return
     if text.startswith('/start link_'):
         link=text.split('link_',1)[1].strip()
@@ -185,6 +193,9 @@ def handle_admin(update):
             c.execute('UPDATE users SET blocked=? WHERE id=?',(int(parts[0]=='/block'),parts[1]))
             c.execute('INSERT INTO audit(actor,action,target,created) VALUES(?,?,?,?)',(str(actor),parts[0],parts[1],core.now()))
             send('admin',chat,'✅')
+        elif text in ('/start','/admin') and actor==core.owner_id():
+            username=core.setting('BOT_USERNAME').strip().lstrip('@')
+            send('admin',chat,'FUMIST Admin\n/stats · /pending · /refund',[[{'text':'⚙️ Admin kabinet','url':'https://t.me/'+username+'?start=admin'}]])
         else: send('admin',chat,'FUMIST Admin\n/stats — statistika\n/pending — cheklar\n/block USER_ID\n/unblock USER_ID\n/refund ORDER_ID — Stars qaytarish\n\nFaqat ADMIN_IDS dagi akkauntlar tasdiqlaydi. Obuna tasdiqlangan vaqtdan 1 kalendar oy ishlaydi.')
 
 def poll(bot):

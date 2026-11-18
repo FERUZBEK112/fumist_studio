@@ -54,6 +54,24 @@ class Server(HTTPServer):
         except Exception as exc: print('HTTP request failed',type(exc).__name__)
         finally: self.shutdown_request(request)
 
+def owner_dashboard(search):
+    with core.db() as c:
+        def rows(sql,args=()): return [dict(row) for row in c.execute(sql,args)]
+        return {
+            'users':rows("""SELECT username,telegram_id,CASE WHEN expires>? THEN plan ELSE 'free' END AS plan,
+                expires,blocked FROM users WHERE instr(lower(username),lower(?)) OR instr(COALESCE(CAST(telegram_id AS TEXT),''),?) OR ?=''
+                ORDER BY created DESC LIMIT 50""",(core.now(),search,search,search)),
+            'totals':dict(c.execute("""SELECT (SELECT count(*) FROM users) AS users,
+                (SELECT count(*) FROM users WHERE plan!='free' AND expires>?) AS active,
+                (SELECT count(*) FROM projects) AS projects,
+                (SELECT count(*) FROM orders WHERE status IN ('review','paid_review')) AS pending""",(core.now(),)).fetchone()),
+            'orders':rows("""SELECT o.id,u.username,o.plan,o.amount,o.currency,o.status,o.receipt IS NOT NULL AS has_receipt
+                FROM orders o JOIN users u ON u.id=o.user_id
+                ORDER BY (o.status IN ('review','paid_review')) DESC,o.created DESC LIMIT 50"""),
+            'jobs':rows('SELECT u.username,j.kind,j.status,j.progress FROM jobs j JOIN users u ON u.id=j.user_id ORDER BY j.created DESC LIMIT 30'),
+            'audit':rows('SELECT action,target,created FROM audit ORDER BY id DESC LIMIT 30')
+        }
+
 class Handler(BaseHTTPRequestHandler):
     server_version='FUMIST'
     protocol_version='HTTP/1.1'
@@ -117,11 +135,15 @@ class Handler(BaseHTTPRequestHandler):
                     with core.db() as c: row=c.execute('SELECT * FROM users WHERE username=?',(str(data.get('username','')).lower(),)).fetchone()
                     if not row or not core.verify_password(str(data.get('password','')),row['password']): raise core.Error('invalid_credentials',401)
                     u=core.user(row)
+                elif action=='telegram-code':
+                    u=core.consume_login_code(str(data.get('code','')))
                 elif action=='telegram':
                     if not core.setting('BOT_TOKEN'): raise core.Error('bot_not_configured',503)
                     u=core.telegram_user(core.telegram_verify(str(data.get('initData','')),core.setting('BOT_TOKEN')))
                 else: raise core.Error('not_found',404)
-                return self.json({'user':u},cookie=core.session_create(u['id'],'telegram' if action=='telegram' else 'web'))
+                source={'telegram':'telegram','telegram-code':'telegram_web'}.get(action,'web')
+                session=core.session_create(u['id'],source)
+                return self.json({'user':core.session_user(session)},cookie=session)
             if path=='/api/logout' and method=='POST':
                 self.body()
                 cookie=http.cookies.SimpleCookie(self.headers.get('Cookie','')); token=cookie.get('fumist_session')
@@ -130,6 +152,21 @@ class Handler(BaseHTTPRequestHandler):
                 return self.json({'ok':True},cookie='')
             if path.startswith('/api/'):
                 u=self.auth(); rate(('user',u['id']),180)
+                if path.startswith('/api/owner/'):
+                    if not u['is_owner']: raise core.Error('admin_only',403)
+                    if path=='/api/owner/dashboard' and method=='GET':
+                        query=urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+                        return self.json(owner_dashboard(query.get('search',[''])[0][:100]))
+                    if path.startswith('/api/owner/receipt/') and method=='GET':
+                        with core.db() as c: row=c.execute('SELECT receipt FROM orders WHERE id=?',(path.rsplit('/',1)[1],)).fetchone()
+                        if not row or not row[0]: raise core.Error('not_found',404)
+                        receipt=core.DATA/row[0]
+                        return self.file(receipt,private=True,download='receipt'+receipt.suffix)
+                    if path=='/api/owner/review' and method=='POST':
+                        data=self.body()
+                        if data.get('decision') not in ('approve','reject'): raise core.Error('invalid_body')
+                        return self.json(core.review_order(data.get('order'),u['telegram_id'],data['decision']=='approve'))
+                    raise core.Error('not_found',404)
                 if path=='/api/me': return self.json({'user':u})
                 if path=='/api/preferences' and method=='POST':
                     data=self.body(); lang=data.get('language',u['language']); theme=data.get('theme',u['theme'])

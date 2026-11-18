@@ -49,6 +49,26 @@ class StudioTests(unittest.TestCase):
         return identifier
     def project(self,media=None):
         return {'ratio':'16:9','resolution':720,'fps':30,'clips':[{'media':media or self.image(),'in':0,'out':3,'speed':1}],'texts':[],'audio':[],'subtitles':[]}
+    def test_owner_code_login_and_order_review(self):
+        owner=core.telegram_user({'id':core.owner_id()})
+        code=core.issue_login_code(owner)
+        url='/api/auth/telegram-code'
+        status,body,headers=self.request(url,'POST',{'code':code})
+        self.assertEqual(status,200)
+        self.assertTrue(body['user']['is_owner'])
+        cookie=headers.split(b'Set-Cookie: fumist_session=',1)[1].split(b';',1)[0].decode()
+        self.assertEqual(self.request(url,'POST',{'code':code})[0],401)
+        dashboard='/api/owner/dashboard'
+        self.assertEqual(self.request(dashboard,token=self.token)[0],403)
+        self.assertEqual(self.request(dashboard,token=core.session_create(owner['id']))[0],403)
+        order=self.order()
+        with core.db() as c:
+            c.execute("UPDATE orders SET status='review' WHERE id=?",(order,))
+        self.assertEqual(self.request(dashboard,token=cookie)[1]['totals']['pending'],1)
+        payload={'order':order,'decision':'approve'}
+        self.assertEqual(self.request('/api/owner/review','POST',payload,self.token)[0],403)
+        self.assertEqual(self.request('/api/owner/review','POST',payload,cookie)[0],200)
+        self.assertEqual(self.request('/api/owner/review','POST',payload,cookie)[0],409)
     def test_password_hash_and_sessions(self):
         with core.db() as c:stored=c.execute('SELECT password FROM users WHERE id=?',(self.u['id'],)).fetchone()[0]
         self.assertNotIn('secure-test-password',stored)
